@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 
-const BASE_URL = "http://localhost:5000/api/v1";
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
 
 export default function PaymentSuccess() {
   const router    = useRouter();
+  const { reference, trxref } = useLocalSearchParams();
   const [verifying, setVerifying] = useState(true);
   const [success,   setSuccess]   = useState(false);
   const [message,   setMessage]   = useState("");
@@ -14,8 +16,8 @@ export default function PaymentSuccess() {
 
   const verifyPayment = async () => {
     try {
-      const params    = new URLSearchParams(window.location.search);
-      const reference = params.get("reference") || params.get("trxref");
+      
+    const ref = reference || trxref;  
 
       if (!reference) {
         setMessage("No payment reference found. Please contact support.");

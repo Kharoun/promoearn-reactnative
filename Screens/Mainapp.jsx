@@ -3,9 +3,12 @@
  * 5 Tabs: Home | PromoSpace | Wallet | Referral | Profile
  * Fully connected to backend API
  */
+import * as Clipboard from 'expo-clipboard';
+import PromoSpaceScreen from "./PromoSpaceScreen"
 import NotificationsListScreen from "./NotificationsListScreen";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import { loadSavedAccounts } from "./PayoutMethodsscreen";
 import PayoutMethodsScreen   from "./PayoutMethodsscreen";
 import NotificationsScreen   from "./NotificationsScreen";
 import AccountSettingsScreen from "./AccountSettingsScreen";
@@ -13,7 +16,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Dimensions, TextInput, Modal, Platform, Alert, RefreshControl,
-  ActivityIndicator,
+  ActivityIndicator, Linking,
 } from "react-native";
 import Svg, { Path, Circle, Rect, Line, Polyline, G } from "react-native-svg";
 import { WebView } from "react-native-webview";
@@ -21,9 +24,11 @@ import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LIGHT, DARK, LANGUAGES } from "./AccountSettingsScreen";
+import { Share } from "react-native";
 
 const { width, height } = Dimensions.get("window");
-const BASE_URL = "http://localhost:5000/api/v1";
+const AUTH_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1"
 const C = {
   blue:      "#1A56DB",
   blueSoft:  "#EEF4FF",
@@ -53,7 +58,7 @@ const TRANSLATIONS = {
     withdraw: "Withdraw", history: "History", tasksDone: "Tasks Done",
     referrals: "Referrals", rank: "Rank", latestTasks: "Latest Tasks",
     topEarners: "Top Earners", activateAccount: "Activate Your Account",
-    activateSubtitle: "One-time $3.00 · Get $0.33 welcome bonus",
+    activateSubtitle: "One-time $3.00",
     // PromoSpace
     earn: "Earn", advertise: "Advertise", marketplace: "Marketplace",
     todayPotential: "Today's Potential", earnUpTo: "Earn up to",
@@ -61,24 +66,24 @@ const TRANSLATIONS = {
     noTasksFound: "No tasks found", checkBackLater: "Check back later for new tasks",
     unlockAllTasks: "Unlock All Tasks",
     unlockSubtitle: "Activate your account with a one-time $3.00 fee to access all earning tasks.",
-    activate: "Activate · $3.00", oneTimeFee: "One-time · $0.33 welcome bonus",
+    activate: "Activate · $3.00",
     start: "Start", completed: "Completed",
     // Wallet
     totalBalance: "Total Balance", withdrawn: "Withdrawn",
     transactionHistory: "Transaction History", noTransactions: "No transactions yet",
-    withdrawFunds: "Withdraw Funds", allAmountsUSD: "All amounts in USD · Min. $3.50",
+    withdrawFunds: "Withdraw Funds", allAmountsUSD: "All amounts in USD · Min. $3.34",
     amount: "Amount ($)", accountNumber: "Account Number", bankName: "Bank Name",
     requestWithdrawal: "Request Withdrawal", submitting: "Submitting...",
     howWithdrawalsWork: "How Withdrawals Work", feesInfo: "Fees, conversion rate & payout info",
     withdrawalFeeNotice: "Withdrawal Fee Notice",
-    withdrawalFeeDetail: "A flat $1.00 processing fee is deducted from every withdrawal.",
+    withdrawalFeeDetail: "A flat $0.067 processing fee is deducted from every withdrawal.",
     dollarConversion: "Dollar Conversion Rate",
-    dollarConversionDetail: "All balances shown in US Dollars. When we send your payout to a Nigerian bank, we convert at",
+    dollarConversionDetail: "All balances shown in US Dollars. When we send your payout to a Local bank account, we convert at",
     stepByStep: "Step-by-Step Process",
-    step1Title: "Request Withdrawal", step1Desc: "Enter your amount (min $3.50), bank name and account number.",
-    step2Title: "$1.00 Fee Deducted", step2Desc: "A $1.00 processing fee is taken from your requested amount.",
+    step1Title: "Request Withdrawal", step1Desc: "Enter your amount (min $3.34), bank name and account number.",
+    step2Title: "$0.067 Fee Deducted", step2Desc: "A $0.067 processing fee is taken from your requested amount.",
     step3Title: "We Convert to Naira", step3Desc: "The remaining balance is converted at $1 = ₦1,500.",
-    step4Title: "Payout Within 24–48hrs", step4Desc: "Funds are sent directly to your Nigerian bank account.",
+    step4Title: "Payout Within 24hrs", step4Desc: "Funds are sent directly to your Local bank account account.",
     youWithdraw: "You withdraw", processingFee: "Processing fee",
     youReceiveUSD: "You receive (USD)", nairaEquivalent: "Naira equivalent",
     referAndEarn: "Refer & Earn",
@@ -92,7 +97,7 @@ const TRANSLATIONS = {
     ref1: "Share your unique referral code or link",
     ref2: "Your friend signs up using your code",
     ref3: "They activate their account ($3.00 fee)",
-    ref4: "You earn $1.00 referral bonus instantly!",
+    ref4: "You earn $1.33 referral bonus instantly!",
     // Profile
     payoutMethods: "Payout Methods", notifications: "Notifications",
     accountSettings: "Account Settings", helpFeedback: "Help & Feedback",
@@ -137,19 +142,19 @@ const TRANSLATIONS = {
     start: "Bẹrẹ", completed: "Ti Pari",
     totalBalance: "Apapọ Owo", withdrawn: "Ti Yọ",
     transactionHistory: "Itan Iṣowo", noTransactions: "Ko si iṣowo sibẹ",
-    withdrawFunds: "Yọ Owo", allAmountsUSD: "Gbogbo owo ni USD · O kere $3.50",
+    withdrawFunds: "Yọ Owo", allAmountsUSD: "Gbogbo owo ni USD · O kere $3.34",
     amount: "Iye ($)", accountNumber: "Nọmba Akọọlẹ", bankName: "Orukọ Banki",
     requestWithdrawal: "Beere Yiyọ Owo", submitting: "Firanṣẹ...",
     howWithdrawalsWork: "Bii Yiyọ Owo Ṣe N Ṣiṣẹ", feesInfo: "Awọn owo, oṣuwọn, ati alaye sisanwo",
     withdrawalFeeNotice: "Akiyesi Owo Yiyọ",
-    withdrawalFeeDetail: "Owo sisẹ $1.00 ni a yọ kuro ninu gbogbo yiyọ.",
+    withdrawalFeeDetail: "Owo sisẹ $0.067 ni a yọ kuro ninu gbogbo yiyọ.",
     dollarConversion: "Oṣuwọn Iyipada Dọla",
     dollarConversionDetail: "Gbogbo iye ni a fihan ni Dọla Amẹrika. A ṣe iyipada si",
     stepByStep: "Ilana Igbesẹ-Nipasẹ-Igbesẹ",
-    step1Title: "Beere Yiyọ Owo", step1Desc: "Tẹ iye rẹ (o kere $3.50), orukọ banki ati nọmba akọọlẹ.",
-    step2Title: "Owo $1.00 Yọ", step2Desc: "Owo sisẹ $1.00 ni a gba lati iye ti o beere.",
+    step1Title: "Beere Yiyọ Owo", step1Desc: "Tẹ iye rẹ (o kere $3.34), orukọ banki ati nọmba akọọlẹ.",
+    step2Title: "Owo $0.067 Yọ", step2Desc: "Owo sisẹ $0.067 ni a gba lati iye ti o beere.",
     step3Title: "A Ṣe Iyipada si Naira", step3Desc: "Iyokù ni a ṣe iyipada ni $1 = ₦1,500.",
-    step4Title: "Sisanwo Laarin 24–48hr", step4Desc: "Owo ranṣẹ si akọọlẹ banki Naijiriya rẹ taara.",
+    step4Title: "Sisanwo Laarin 24hrs", step4Desc: "Owo ranṣẹ si akọọlẹ banki Naijiriya rẹ taara.",
     youWithdraw: "O Yọ", processingFee: "Owo Sisẹ",
     youReceiveUSD: "O Gba (USD)", nairaEquivalent: "Iye Naira",
     referAndEarn: "Tọka & Gba Owo",
@@ -201,19 +206,19 @@ const TRANSLATIONS = {
     start: "Fara", completed: "An Kammala",
     totalBalance: "Jimlar Kudi", withdrawn: "An Cire",
     transactionHistory: "Tarihin Ma'amala", noTransactions: "Babu ma'amala tukuna",
-    withdrawFunds: "Cire Kudi", allAmountsUSD: "Duk adadi a USD · Mafi ƙaranci $3.50",
+    withdrawFunds: "Cire Kudi", allAmountsUSD: "Duk adadi a USD · Mafi ƙaranci $3.34",
     amount: "Adadi ($)", accountNumber: "Lambar Asusun", bankName: "Sunan Banki",
     requestWithdrawal: "Nemi Cirewa", submitting: "Ana Aika...",
     howWithdrawalsWork: "Yadda Cirewa ke Aiki", feesInfo: "Kuɗi, darajar musanya, da bayanin biyan kuɗi",
     withdrawalFeeNotice: "Sanarwar Kuɗin Cirewa",
-    withdrawalFeeDetail: "Ana cire kuɗin sarrafa $1.00 daga kowane cirewa.",
+    withdrawalFeeDetail: "Ana cire kuɗin sarrafa $0.067 daga kowane cirewa.",
     dollarConversion: "Darajar Canza Dala",
     dollarConversionDetail: "Duk ma'auni ana nuna su a Dalolin Amurka. Muna canza zuwa",
     stepByStep: "Tsarin Mataki-da-Mataki",
-    step1Title: "Nemi Cirewa", step1Desc: "Shigar da adadi (mafi ƙaranci $3.50), sunan banki da lambar asusun.",
-    step2Title: "An Cire $1.00", step2Desc: "Ana ɗaukar kuɗin sarrafa $1.00 daga adadin da ka nema.",
+    step1Title: "Nemi Cirewa", step1Desc: "Shigar da adadi (mafi ƙaranci $3.34), sunan banki da lambar asusun.",
+    step2Title: "An Cire $1.00", step2Desc: "Ana ɗaukar kuɗin sarrafa $0.067 daga adadin da ka nema.",
     step3Title: "Muna Canza zuwa Naira", step3Desc: "Sauran ana canza shi a $1 = ₦1,500.",
-    step4Title: "Biyan Kuɗi a cikin 24–48hr", step4Desc: "Ana aika kuɗi kai tsaye zuwa asusun bankin Najeriya naka.",
+    step4Title: "Biyan Kuɗi a cikin 24hrs", step4Desc: "Ana aika kuɗi kai tsaye zuwa asusun bankin Najeriya naka.",
     youWithdraw: "Kana Cirewa", processingFee: "Kuɗin Sarrafawa",
     youReceiveUSD: "Kana Karɓa (USD)", nairaEquivalent: "Darajar Naira",
     referAndEarn: "Kira & Samu Kudi",
@@ -265,20 +270,20 @@ const TRANSLATIONS = {
     start: "Malite", completed: "Emechara",
     totalBalance: "Ego Niile", withdrawn: "Ewepụrụ",
     transactionHistory: "Akụkọ Azụmahịa", noTransactions: "Ọ nweghị azụmahịa ka",
-    withdrawFunds: "Wepu Ego", allAmountsUSD: "Ego niile na USD · Kacha ọchie $3.50",
+    withdrawFunds: "Wepu Ego", allAmountsUSD: "Ego niile na USD · Kacha ọchie $3.34",
     amount: "Ego ($)", accountNumber: "Nọmba Akaụntụ", bankName: "Aha Ụlọ Akụ",
     requestWithdrawal: "Arịọ Iwepụ Ego", submitting: "Na-eziga...",
     howWithdrawalsWork: "Otu Iwepụ Ego Si Arụ Ọrụ", feesInput: "Ụgwọ, ọnụ ahịa mgbanwe, na ozi ịkwụ ụgwọ",
     feesInfo: "Ụgwọ, ọnụ ahịa mgbanwe, na ozi ịkwụ ụgwọ",
     withdrawalFeeNotice: "Ọkwa Ụgwọ Iwepụ",
-    withdrawalFeeDetail: "A na-ewepụ ụgwọ nhazi $1.00 sitere na iwepụ niile.",
+    withdrawalFeeDetail: "A na-ewepụ ụgwọ nhazi $0.067 sitere na iwepụ niile.",
     dollarConversion: "Ọnụ Ahịa Mgbanwe Dollar",
     dollarConversionDetail: "E gosipụtara ọnụọgụ niile na Dollar America. Anyị na-agbanwe zuoputara",
     stepByStep: "Usoro Nzọụkwụ-Ka-Nzọụkwụ",
-    step1Title: "Arịọ Iwepụ Ego", step1Desc: "Tinye ego gị (kacha ọchie $3.50), aha ụlọ akụ na nọmba akaụntụ.",
-    step2Title: "A Wepụrụ $1.00", step2Desc: "A na-ewepụ ụgwọ nhazi $1.00 sitere n'ego i rịọrọ.",
+    step1Title: "Arịọ Iwepụ Ego", step1Desc: "Tinye ego gị (kacha ọchie $3.34), aha ụlọ akụ na nọmba akaụntụ.",
+    step2Title: "A Wepụrụ $1.00", step2Desc: "A na-ewepụ ụgwọ nhazi $0.067 sitere n'ego i rịọrọ.",
     step3Title: "Anyị Na-agbanwe zuoputara Naira", step3Desc: "A na-agbanwe ihe fọdụrụ na $1 = ₦1,500.",
-    step4Title: "Ịkwụ Ụgwọ n'ime 24–48hr", step4Desc: "A na-eziga ego ozugbo n'akaụntụ ụlọ akụ Nigeria gị.",
+    step4Title: "Ịkwụ Ụgwọ n'ime 24hrs", step4Desc: "A na-eziga ego ozugbo n'akaụntụ ụlọ akụ Nigeria gị.",
     youWithdraw: "Ị Na-ewepụ", processingFee: "Ụgwọ Nhazi",
     youReceiveUSD: "Ị Na-anata (USD)", nairaEquivalent: "Ọnụ Naira",
     referAndEarn: "Tụọ Aka & Nweta Ego",
@@ -330,17 +335,17 @@ const TRANSLATIONS = {
     start: "Commencer", completed: "Terminé",
     totalBalance: "Solde Total", withdrawn: "Retiré",
     transactionHistory: "Historique des Transactions", noTransactions: "Aucune transaction pour l'instant",
-    withdrawFunds: "Retirer des Fonds", allAmountsUSD: "Tous les montants en USD · Min. $3.50",
+    withdrawFunds: "Retirer des Fonds", allAmountsUSD: "Tous les montants en USD · Min. $3.34",
     amount: "Montant ($)", accountNumber: "Numéro de Compte", bankName: "Nom de la Banque",
     requestWithdrawal: "Demander un Retrait", submitting: "Envoi en cours...",
     howWithdrawalsWork: "Comment Fonctionnent les Retraits", feesInfo: "Frais, taux de conversion et infos de paiement",
     withdrawalFeeNotice: "Avis de Frais de Retrait",
-    withdrawalFeeDetail: "Des frais de traitement fixes de $1.00 sont déduits de chaque retrait.",
+    withdrawalFeeDetail: "Des frais de traitement fixes de $0.067 sont déduits de chaque retrait.",
     dollarConversion: "Taux de Conversion du Dollar",
     dollarConversionDetail: "Tous les soldes sont affichés en Dollars US. Nous convertissons à",
     stepByStep: "Processus Étape par Étape",
-    step1Title: "Demander un Retrait", step1Desc: "Entrez votre montant (min $3.50), nom de banque et numéro de compte.",
-    step2Title: "Frais $1.00 Déduits", step2Desc: "Des frais de traitement de $1.00 sont prélevés sur votre montant demandé.",
+    step1Title: "Demander un Retrait", step1Desc: "Entrez votre montant (min $3.34), nom de banque et numéro de compte.",
+    step2Title: "Frais $1.00 Déduits", step2Desc: "Des frais de traitement de $0.067 sont prélevés sur votre montant demandé.",
     step3Title: "Nous Convertissons en Naira", step3Desc: "Le solde restant est converti à $1 = ₦1,500.",
     step4Title: "Paiement sous 24–48h", step4Desc: "Les fonds sont envoyés directement à votre compte bancaire nigérian.",
     youWithdraw: "Vous retirez", processingFee: "Frais de traitement",
@@ -355,7 +360,7 @@ const TRANSLATIONS = {
     ref1: "Partagez votre code ou lien de parrainage unique",
     ref2: "Votre ami s'inscrit en utilisant votre code",
     ref3: "Il active son compte (frais $3.00)",
-    ref4: "Vous gagnez un bonus de parrainage de $1.00 instantanément!",
+    ref4: "Vous gagnez un bonus de parrainage de $1.33 instantanément!",
     payoutMethods: "Méthodes de Paiement", notifications: "Notifications",
     accountSettings: "Paramètres du Compte", helpFeedback: "Aide & Commentaires",
     sharePromoEarn: "Partager PromoEarn", logOut: "Se Déconnecter",
@@ -394,17 +399,17 @@ const TRANSLATIONS = {
     start: "ابدأ", completed: "مكتمل",
     totalBalance: "الرصيد الإجمالي", withdrawn: "المسحوب",
     transactionHistory: "سجل المعاملات", noTransactions: "لا توجد معاملات بعد",
-    withdrawFunds: "سحب الأموال", allAmountsUSD: "جميع المبالغ بالدولار · الحد الأدنى $3.50",
+    withdrawFunds: "سحب الأموال", allAmountsUSD: "جميع المبالغ بالدولار · الحد الأدنى $3.34",
     amount: "المبلغ ($)", accountNumber: "رقم الحساب", bankName: "اسم البنك",
     requestWithdrawal: "طلب سحب", submitting: "جار الإرسال...",
     howWithdrawalsWork: "كيف تعمل عمليات السحب", feesInfo: "الرسوم وسعر الصرف ومعلومات الدفع",
     withdrawalFeeNotice: "إشعار رسوم السحب",
-    withdrawalFeeDetail: "يتم خصم رسوم معالجة ثابتة قدرها $1.00 من كل عملية سحب.",
+    withdrawalFeeDetail: "يتم خصم رسوم معالجة ثابتة قدرها $0.067 من كل عملية سحب.",
     dollarConversion: "سعر تحويل الدولار",
     dollarConversionDetail: "تُعرض جميع الأرصدة بالدولار الأمريكي. نحن نحول بسعر",
     stepByStep: "العملية خطوة بخطوة",
-    step1Title: "طلب السحب", step1Desc: "أدخل مبلغك (الحد الأدنى $3.50) واسم البنك ورقم الحساب.",
-    step2Title: "خصم $1.00", step2Desc: "يتم أخذ رسوم معالجة بقيمة $1.00 من مبلغك المطلوب.",
+    step1Title: "طلب السحب", step1Desc: "أدخل مبلغك (الحد الأدنى $3.34) واسم البنك ورقم الحساب.",
+    step2Title: "خصم $1.00", step2Desc: "يتم أخذ رسوم معالجة بقيمة $0.067 من مبلغك المطلوب.",
     step3Title: "نحوّل إلى نايرا", step3Desc: "يُحوَّل الرصيد المتبقي بسعر $1 = ₦1,500.",
     step4Title: "الدفع خلال 24–48 ساعة", step4Desc: "يُرسَل المال مباشرة إلى حسابك المصرفي النيجيري.",
     youWithdraw: "تسحب", processingFee: "رسوم المعالجة",
@@ -458,17 +463,17 @@ const TRANSLATIONS = {
     start: "Iniciar", completed: "Concluído",
     totalBalance: "Saldo Total", withdrawn: "Sacado",
     transactionHistory: "Histórico de Transações", noTransactions: "Nenhuma transação ainda",
-    withdrawFunds: "Sacar Fundos", allAmountsUSD: "Todos os valores em USD · Mín. $3.50",
+    withdrawFunds: "Sacar Fundos", allAmountsUSD: "Todos os valores em USD · Mín. $3.34",
     amount: "Valor ($)", accountNumber: "Número da Conta", bankName: "Nome do Banco",
     requestWithdrawal: "Solicitar Saque", submitting: "Enviando...",
     howWithdrawalsWork: "Como Funcionam os Saques", feesInfo: "Taxas, taxa de câmbio e info de pagamento",
     withdrawalFeeNotice: "Aviso de Taxa de Saque",
-    withdrawalFeeDetail: "Uma taxa de processamento de $1.00 é deduzida de cada saque.",
+    withdrawalFeeDetail: "Uma taxa de processamento de $0.067 é deduzida de cada saque.",
     dollarConversion: "Taxa de Conversão do Dólar",
     dollarConversionDetail: "Todos os saldos são mostrados em Dólares Americanos. Convertemos a",
     stepByStep: "Processo Passo a Passo",
-    step1Title: "Solicitar Saque", step1Desc: "Insira seu valor (mín $3.50), nome do banco e número da conta.",
-    step2Title: "Taxa $1.00 Deduzida", step2Desc: "Uma taxa de processamento de $1.00 é retirada do valor solicitado.",
+    step1Title: "Solicitar Saque", step1Desc: "Insira seu valor (mín $3.34), nome do banco e número da conta.",
+    step2Title: "Taxa $1.00 Deduzida", step2Desc: "Uma taxa de processamento de $0.067 é retirada do valor solicitado.",
     step3Title: "Convertemos para Naira", step3Desc: "O saldo restante é convertido a $1 = ₦1,500.",
     step4Title: "Pagamento em 24–48h", step4Desc: "Os fundos são enviados diretamente para sua conta bancária nigeriana.",
     youWithdraw: "Você saca", processingFee: "Taxa de processamento",
@@ -483,7 +488,7 @@ const TRANSLATIONS = {
     ref1: "Compartilhe seu código ou link de indicação único",
     ref2: "Seu amigo se cadastra usando seu código",
     ref3: "Eles ativam a conta deles (taxa $3.00)",
-    ref4: "Você ganha um bônus de indicação de $1.00 instantaneamente!",
+    ref4: "Você ganha um bônus de indicação de $1.33 instantaneamente!",
     payoutMethods: "Métodos de Pagamento", notifications: "Notificações",
     accountSettings: "Configurações da Conta", helpFeedback: "Ajuda & Feedback",
     sharePromoEarn: "Compartilhar PromoEarn", logOut: "Sair",
@@ -522,17 +527,17 @@ const TRANSLATIONS = {
     start: "Iniciar", completed: "Completado",
     totalBalance: "Saldo Total", withdrawn: "Retirado",
     transactionHistory: "Historial de Transacciones", noTransactions: "No hay transacciones aún",
-    withdrawFunds: "Retirar Fondos", allAmountsUSD: "Todos los montos en USD · Mín. $3.50",
+    withdrawFunds: "Retirar Fondos", allAmountsUSD: "Todos los montos en USD · Mín. $3.34",
     amount: "Monto ($)", accountNumber: "Número de Cuenta", bankName: "Nombre del Banco",
     requestWithdrawal: "Solicitar Retiro", submitting: "Enviando...",
     howWithdrawalsWork: "Cómo Funcionan los Retiros", feesInfo: "Comisiones, tasa de conversión e info de pago",
     withdrawalFeeNotice: "Aviso de Comisión de Retiro",
-    withdrawalFeeDetail: "Se deduce una comisión fija de procesamiento de $1.00 de cada retiro.",
+    withdrawalFeeDetail: "Se deduce una comisión fija de procesamiento de $0.067 de cada retiro.",
     dollarConversion: "Tasa de Conversión del Dólar",
     dollarConversionDetail: "Todos los saldos se muestran en Dólares Americanos. Convertimos a",
     stepByStep: "Proceso Paso a Paso",
-    step1Title: "Solicitar Retiro", step1Desc: "Ingresa tu monto (mín $3.50), nombre del banco y número de cuenta.",
-    step2Title: "Comisión $1.00 Deducida", step2Desc: "Se toma una comisión de procesamiento de $1.00 de tu monto solicitado.",
+    step1Title: "Solicitar Retiro", step1Desc: "Ingresa tu monto (mín $3.34), nombre del banco y número de cuenta.",
+    step2Title: "Comisión $1.00 Deducida", step2Desc: "Se toma una comisión de procesamiento de $0.067 de tu monto solicitado.",
     step3Title: "Convertimos a Naira", step3Desc: "El saldo restante se convierte a $1 = ₦1,500.",
     step4Title: "Pago en 24–48h", step4Desc: "Los fondos se envían directamente a tu cuenta bancaria nigeriana.",
     youWithdraw: "Tú retiras", processingFee: "Comisión de procesamiento",
@@ -547,7 +552,7 @@ const TRANSLATIONS = {
     ref1: "Comparte tu código o enlace de referido único",
     ref2: "Tu amigo se registra usando tu código",
     ref3: "Activan su cuenta (tarifa $3.00)",
-    ref4: "¡Ganas un bono de referido de $1.00 instantáneamente!",
+    ref4: "¡Ganas un bono de referido de $1.33 instantáneamente!",
     payoutMethods: "Métodos de Pago", notifications: "Notificaciones",
     accountSettings: "Configuración de Cuenta", helpFeedback: "Ayuda & Comentarios",
     sharePromoEarn: "Compartir PromoEarn", logOut: "Cerrar Sesión",
@@ -667,15 +672,18 @@ const TaskCard = ({ task, locked, onStart, completed, completedIds }) => {
   const color = task.color || C.blue;
   const [step, setStep] = useState("idle");
 
-  const handleStart = () => {
-    if (task.link && typeof window !== "undefined") {
-      window.open(task.link, "_blank");
-      setStep("opened");
+  const handleStart = async () => {
+    if (task.link) {
+      try {
+        await Linking.openURL(task.link);
+        setStep("opened");
+      } catch (err) {
+        Alert.alert("Error", "Could not open this link.");
+      }
     } else {
       onStart(task);
     }
   };
-
   const handleConfirm = () => {
     setStep("confirming");
     onStart(task, () => setStep("idle"));
@@ -767,22 +775,60 @@ const AdCard = ({ ad }) => {
   );
 };
 
-const PremiumGate = ({ onUpgrade }) => (
-  <View style={z.gateWrap}>
-    <View style={z.gateBg}/>
-    <View style={z.gateCard}>
-      <View style={z.gateIconWrap}><Ico.Crown sz={30}/></View>
-      <Text style={z.gateTitle}>Premium Only</Text>
-      <Text style={z.gateDesc}>Unlock tasks, referrals and full earning features with a one-time registration fee of $3.25.</Text>
-      <TouchableOpacity style={z.gateBtn} onPress={onUpgrade} activeOpacity={0.85}>
-        <Ico.Crown sz={15} cl={C.dark}/>
-        <Text style={z.gateBtnTxt}>Activate Account · $3.00</Text>
-      </TouchableOpacity>
-      <Text style={z.gateHint}>One-time fee · $0.33 welcome bonus · Secured by Paystack</Text>
-    </View>
-  </View>
-);
+const PremiumGate = ({ onUpgrade }) => {
+  const fakeTasks = [
+    { title: "Follow this brand on Instagram",  reward: "$1.00", type: "follow"   },
+    { title: "Watch a 30-second product video", reward: "$2.00", type: "video"    },
+    { title: "Like and share this post",        reward: "$3.00", type: "like"     },
+    { title: "Click and visit brand website",   reward: "$1.50", type: "click"    },
+    { title: "Download this app for free",      reward: "$2.50", type: "download" },
+  ];
+  return (
+    <View style={{ flex:1 }}>
+      {/* Blurred fake task cards */}
+      <View style={{ opacity: 0.3, pointerEvents: "none" }}>
+        {fakeTasks.map((task, i) => (
+          <View key={i} style={[z.taskCard]}>
+            <View style={[z.taskLogo, { backgroundColor:"#E2E8F0" }]}>
+              <Text style={{ fontFamily:fonts.semibold, fontSize:11, color:"#94A3B8" }}>PE</Text>
+            </View>
+            <View style={{ flex:1 }}>
+              <Text style={z.taskTitle}>{task.title}</Text>
+              <Text style={z.taskBrand}>PromoEarn Task</Text>
+            </View>
+            <View style={{ alignItems:"flex-end" }}>
+              <Text style={z.taskReward}>{task.reward}</Text>
+              <View style={[z.startBtn, { backgroundColor:"#CBD5E1" }]}>
+                <Text style={z.startBtnTxt}>Start</Text>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
 
+      {/* Centered lock overlay */}
+      <View style={{ position:"absolute", top:0, left:0, right:0, bottom:0, alignItems:"center", justifyContent:"center", padding:24 }}>
+        <View style={{ backgroundColor:"#FFFFFF", borderRadius:24, padding:28, alignItems:"center", shadowColor:"#000", shadowOpacity:0.12, shadowRadius:24, elevation:10, width:"90%" }}>
+          <View style={{ width:60, height:60, borderRadius:30, backgroundColor:"#EEF4FF", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+            <Ico.Lock sz={26} cl={C.blue}/>
+          </View>
+          <Text style={{ fontFamily:fonts.black, fontSize:20, color:C.dark, textAlign:"center", marginBottom:8 }}>Unlock All Tasks</Text>
+          <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", lineHeight:20, marginBottom:22 }}>
+            Activate your account with a one-time fee to access all earning tasks above and more.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor:C.blue, borderRadius:14, height:52, width:"100%", alignItems:"center", justifyContent:"center" }}
+            onPress={onUpgrade} activeOpacity={0.85}>
+            <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFFFFF" }}>Activate Account · $3.00</Text>
+          </TouchableOpacity>
+          {/* <Text style={{ fontFamily:fonts.regular, fontSize:11, color:C.muted, marginTop:10, textAlign:"center" }}>
+            One-time fee · $0.33 welcome bonus included
+          </Text> */}
+        </View>
+      </View>
+    </View>
+  );
+};
 // ── Filter Chip ────────────────────────────────────────────────────────────
 const FilterChip = ({ label, active, onPress }) => (
   <TouchableOpacity onPress={onPress} activeOpacity={0.8}
@@ -1157,7 +1203,7 @@ const PremiumModal = ({ visible, onProceed, onClose }) => (
             </View>
           ))}
         </View>
-        <Text style={pm.hint}>One-time fee · $0.33 welcome bonus · Secured by Paystack</Text>
+        <Text style={pm.hint}>Secured by Paystack</Text>
       </View>
     </View>
   </Modal>
@@ -1186,24 +1232,87 @@ const pm = StyleSheet.create({
 });
 
 // ── Paystack Modal ─────────────────────────────────────────────────────────
-const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
+// ── Paystack Modal ─────────────────────────────────────────────────────────
+// Replace your entire PaystackModal component with this version.
+// Works on BOTH web (opens in browser tab) and mobile (uses WebView).
 
+const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState(null);
+  const [paymentUrl, setPaymentUrl] = useState(null);
+  const [reference,  setReference]  = useState(null);
+  const [verifying,  setVerifying]  = useState(false);
+ 
+  const isWeb = Platform.OS === "web";
+ 
+  // Reset when modal closes
+  useEffect(() => {
+    if (!visible) {
+      setLoading(false);
+      setError(null);
+      setPaymentUrl(null);
+      setReference(null);
+      setVerifying(false);
+    }
+  }, [visible]);
+ 
+  // ── On web: poll every 2s to see if user came back after paying ────────
+  // Works with ngrok — when Paystack redirects to /payment-success?reference=xxx
+  // that page stores the ref in localStorage then closes itself.
+  useEffect(() => {
+    if (!isWeb || !paymentUrl || !reference) return;
+ 
+    const interval = setInterval(() => {
+      try {
+        const done = localStorage.getItem("pe_payment_done");
+        if (done === reference) {
+          clearInterval(interval);
+          localStorage.removeItem("pe_payment_done");
+          verifyAndActivate(reference);
+        }
+      } catch {}
+    }, 2000);
+ 
+    return () => clearInterval(interval);
+  }, [paymentUrl, reference]);
+ 
+  // ── Step 1: Call backend to get Paystack URL ───────────────────────────
   const handlePay = async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
+      const token = await AuthService.getToken();
+      if (!token) {
+        setError("Session expired. Please log out and log back in.");
+        return;
+      }
+ 
       const res = await fetch(`${BASE_URL}/payments/create-checkout`, {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ userId: user.uid, email: user.email }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId: user.uid, email: user.email }),
       });
+ 
       const data = await res.json();
-      if (data.url) {
-        localStorage.setItem("pe_payment_ref", data.reference);
-        window.location.href = data.url;
-      } else {
+ 
+      if (!data.success || !data.url) {
         setError(data.message || "Could not start payment. Please try again.");
+        return;
+      }
+ 
+      // Save reference so we can verify later
+      setReference(data.reference);
+      try { localStorage.setItem("pe_payment_ref", data.reference); } catch {}
+ 
+      if (isWeb) {
+        // Open Paystack in a new tab — stay on this screen to verify
+        window.open(data.url, "_blank");
+        setPaymentUrl(data.url);
+      } else {
+        setPaymentUrl(data.url);
       }
     } catch {
       setError("Network error. Check your connection and try again.");
@@ -1211,7 +1320,266 @@ const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
       setLoading(false);
     }
   };
-
+ 
+  // ── Step 2: Verify with backend and activate ───────────────────────────
+  const verifyAndActivate = async (ref) => {
+    if (verifying) return;
+    setVerifying(true);
+    setError(null);
+ 
+    const refToUse = ref || reference;
+    if (!refToUse) {
+      setError("Payment reference missing. If you paid, contact support@promoearn.com");
+      setVerifying(false);
+      return;
+    }
+ 
+    try {
+      const token = await AuthService.getToken();
+      const res = await fetch(`${BASE_URL}/payments/verify-payment`, {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reference: refToUse }),
+      });
+ 
+      const data = await res.json();
+ 
+      if (data.success || data.message?.includes("already activated")) {
+        try { await AsyncStorage.removeItem("pe_payment_ref"); } catch {}
+        setPaymentUrl(null);
+        // ← This calls onPaid() in MainApp which calls fetchUser() + shows success
+        onSuccess();
+      } else {
+        setError(data.message || "Payment not confirmed yet. Please wait a moment and try again.");
+      }
+    } catch {
+      setError("Verification failed. If you paid, tap the button again or contact support.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+ 
+  // ── Mobile: WebView nav watcher ────────────────────────────────────────
+  const handleWebViewNav = async (navState) => {
+    const url = navState.url || "";
+    const isComplete =
+      url.includes("/payment-success") ||
+      url.includes("paystack.com/close") ||
+      url.includes("standard.paystack.com/close");
+ 
+    if (isComplete) {
+      // Try to grab reference from redirect URL params
+      try {
+        const parsed = new URL(url);
+        const urlRef =
+          parsed.searchParams.get("reference") ||
+          parsed.searchParams.get("trxref");
+          if (urlRef) {
+            setReference(urlRef);
+            try { await AsyncStorage.setItem("pe_payment_ref", urlRef); } catch {}
+            await verifyAndActivate(urlRef);
+          return;
+        }
+      } catch {}
+      // Fallback to stored reference
+      await verifyAndActivate(reference);
+    }
+  };
+ 
+  // ── WEB: Waiting screen after Paystack tab opened ──────────────────────
+  if (isWeb && paymentUrl) {
+    return (
+      <Modal visible={true} animationType="slide" transparent>
+        <View style={sm.overlay}>
+          <View style={sm.sheet}>
+            <View style={sm.handle} />
+ 
+            {/* Header */}
+            <View style={sm.header}>
+              <View>
+                <Text style={sm.title}>
+                  {verifying ? "Activating your account..." : "Complete Your Payment"}
+                </Text>
+                <Text style={sm.sub}>
+                  {verifying ? "Please wait a moment" : "Paystack opened in a new tab"}
+                </Text>
+              </View>
+              {!verifying && (
+                <TouchableOpacity
+                  style={sm.closeBtn}
+                  onPress={() => { setPaymentUrl(null); setError(null); }}
+                  activeOpacity={0.7}>
+                  <Text style={{ fontSize: 18, color: "#64748B" }}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+ 
+            <View style={sm.body}>
+              {verifying ? (
+                // ── Verifying state ──
+                <View style={{ alignItems: "center", paddingVertical: 32 }}>
+                  <ActivityIndicator color="#1A56DB" size="large" />
+                  <Text style={{
+                    marginTop: 16, color: "#0F172A",
+                    fontFamily: fonts.bold, fontSize: 16, textAlign: "center",
+                  }}>
+                    Verifying your payment...
+                  </Text>
+                  <Text style={{
+                    marginTop: 8, color: "#64748B",
+                    fontFamily: fonts.regular, fontSize: 13, textAlign: "center",
+                  }}>
+                    Activating your account and adding your $0.33 welcome bonus
+                  </Text>
+                </View>
+              ) : (
+                // ── Waiting state ──
+                <>
+                  {/* Step instructions */}
+                  <View style={{
+                    backgroundColor: "#EEF4FF", borderRadius: 16, padding: 16,
+                    marginBottom: 20,
+                  }}>
+                    <Text style={{
+                      fontFamily: fonts.bold, fontSize: 14, color: "#0F172A", marginBottom: 10,
+                    }}>
+                      How to complete payment:
+                    </Text>
+                    {[
+                      "Complete the payment in the new tab that just opened",
+                      "Come back to this tab when done",
+                      "Tap the green button below to activate your account",
+                    ].map((step, i) => (
+                      <View key={i} style={{
+                        flexDirection: "row", gap: 10, marginBottom: i < 2 ? 8 : 0,
+                      }}>
+                        <View style={{
+                          width: 22, height: 22, borderRadius: 11,
+                          backgroundColor: "#1A56DB", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <Text style={{
+                            fontFamily: fonts.black, fontSize: 11, color: "#fff",
+                          }}>{i + 1}</Text>
+                        </View>
+                        <Text style={{
+                          flex: 1, fontFamily: fonts.regular, fontSize: 13,
+                          color: "#0F172A", lineHeight: 20,
+                        }}>{step}</Text>
+                      </View>
+                    ))}
+                  </View>
+ 
+                  {/* Retry open link */}
+                  <TouchableOpacity
+                    onPress={() => window.open(paymentUrl, "_blank")}
+                    style={{ marginBottom: 16, alignItems: "center" }}
+                    activeOpacity={0.7}>
+                    <Text style={{
+                      fontFamily: fonts.semibold, fontSize: 13, color: "#1A56DB",
+                    }}>
+                      Tab didn't open? Tap here to retry ↗
+                    </Text>
+                  </TouchableOpacity>
+ 
+                  {error && (
+                    <View style={sm.errorBox}>
+                      <Text style={sm.errorTxt}>⚠️ {error}</Text>
+                    </View>
+                  )}
+ 
+                  {/* Main CTA */}
+                  <TouchableOpacity
+                    style={[sm.payBtn, { backgroundColor: "#10B981" }]}
+                    onPress={() => verifyAndActivate(reference)}
+                    activeOpacity={0.85}>
+                    <Text style={sm.payBtnTxt}>✅  I've completed payment</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+ 
+              <Text style={sm.hint}>
+                Secured by Paystack · One-time fee · No recurring charges
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+ 
+  // ── MOBILE: WebView screen ─────────────────────────────────────────────
+  if (!isWeb && paymentUrl) {
+    const { WebView } = require("react-native-webview");
+    return (
+      <Modal visible={true} animationType="slide">
+        <View style={{ flex: 1, backgroundColor: "#fff" }}>
+          <View style={{
+            flexDirection: "row", alignItems: "center",
+            paddingTop: Platform.OS === "ios" ? 56 : 40,
+            paddingHorizontal: 16, paddingBottom: 12,
+            borderBottomWidth: 1, borderBottomColor: "#E2E8F0",
+          }}>
+            <TouchableOpacity
+              onPress={() => { setPaymentUrl(null); setError(null); }}
+              style={{ marginRight: 16 }}
+              activeOpacity={0.7}>
+              <Text style={{ fontSize: 16, color: "#64748B" }}>✕ Cancel</Text>
+            </TouchableOpacity>
+            <Text style={{
+              fontFamily: fonts.bold, fontSize: 16, color: "#0F172A", flex: 1,
+            }}>
+              Secure Payment · Paystack
+            </Text>
+            {verifying && <ActivityIndicator color="#1A56DB" />}
+          </View>
+ 
+          <WebView
+            source={{ uri: paymentUrl }}
+            onNavigationStateChange={handleWebViewNav}
+            startInLoadingState
+            renderLoading={() => (
+              <View style={{
+                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                alignItems: "center", justifyContent: "center", backgroundColor: "#fff",
+              }}>
+                <ActivityIndicator size="large" color="#1A56DB" />
+                <Text style={{ marginTop: 12, color: "#64748B", fontSize: 14 }}>
+                  Loading payment page...
+                </Text>
+              </View>
+            )}
+          />
+ 
+          {verifying ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <ActivityIndicator color="#1A56DB" />
+              <Text style={{ marginTop: 8, color: "#64748B", fontSize: 13 }}>
+                Activating your account...
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => verifyAndActivate(reference)}
+              style={{
+                margin: 16, backgroundColor: "#10B981",
+                borderRadius: 14, height: 52,
+                alignItems: "center", justifyContent: "center",
+              }}
+              activeOpacity={0.85}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#fff" }}>
+                ✅  I've completed payment
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Modal>
+    );
+  }
+ 
+  // ── Summary sheet (before payment) ────────────────────────────────────
   if (!visible) return null;
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -1223,29 +1591,49 @@ const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
               <Text style={sm.title}>Activate Account · $3.00</Text>
               <Text style={sm.sub}>One-time · Secured by Paystack</Text>
             </View>
-            <TouchableOpacity style={sm.closeBtn} onPress={onClose}>
-              <Text style={{ fontSize:18, color:C.muted }}>✕</Text>
+            <TouchableOpacity style={sm.closeBtn} onPress={onClose} activeOpacity={0.7}>
+              <Text style={{ fontSize: 18, color: "#64748B" }}>✕</Text>
             </TouchableOpacity>
           </View>
+ 
           <View style={sm.body}>
-            <View style={sm.summaryRow}><Text style={sm.summaryLbl}>Registration Fee</Text><Text style={sm.summaryVal}>$3.00</Text></View>
-            <View style={sm.summaryRow}><Text style={sm.summaryLbl}>Welcome Bonus</Text><Text style={[sm.summaryVal, { color:C.green }]}>+$0.33</Text></View>
-            <View style={sm.summaryRow}><Text style={sm.summaryLbl}>First 2 Tasks Bonus</Text><Text style={[sm.summaryVal, { color:C.green }]}>+$0.33</Text></View>
-            <View style={[sm.summaryRow, { borderTopWidth:1, borderTopColor:C.border, marginTop:10, paddingTop:10 }]}>
-              <Text style={[sm.summaryLbl, { fontFamily:fonts.bold, color:C.dark }]}>Min. Withdrawal</Text>
-              <Text style={[sm.summaryVal, { color:C.blue }]}>$3.50</Text>
+            {[
+              { lbl: "Registration Fee",  val: "$3.00",  color: "#0F172A" },
+        
+            ].map((row, i) => (
+              <View key={i} style={sm.summaryRow}>
+                <Text style={sm.summaryLbl}>{row.lbl}</Text>
+                <Text style={[sm.summaryVal, { color: row.color }]}>{row.val}</Text>
+              </View>
+            ))}
+            <View style={[sm.summaryRow, {
+              borderTopWidth: 1, borderTopColor: "#E2E8F0",
+              marginTop: 10, paddingTop: 10,
+            }]}>
+              <Text style={[sm.summaryLbl, { fontFamily: fonts.bold, color: "#0F172A" }]}>
+                Min. Withdrawal
+              </Text>
+              <Text style={[sm.summaryVal, { color: "#1A56DB" }]}>$3.34.00</Text>
             </View>
+ 
             {error && (
               <View style={sm.errorBox}>
-                <Text style={sm.errorTxt}>{error}</Text>
+                <Text style={sm.errorTxt}>⚠️ {error}</Text>
               </View>
             )}
+ 
             <TouchableOpacity
-              style={[sm.payBtn, loading && { opacity:0.7 }]}
-              onPress={handlePay} disabled={loading} activeOpacity={0.85}>
-              <Text style={sm.payBtnTxt}>{loading ? "Opening Paystack..." : "Pay $3.00 with Paystack"}</Text>
+              style={[sm.payBtn, loading && { opacity: 0.7 }]}
+              onPress={handlePay}
+              disabled={loading}
+              activeOpacity={0.85}>
+              <Text style={sm.payBtnTxt}>
+                {loading ? "Opening Paystack..." : "Pay $3.00 with Paystack"}
+              </Text>
             </TouchableOpacity>
-            <Text style={sm.hint}>Secured by Paystack · One-time fee · No recurring charges</Text>
+            <Text style={sm.hint}>
+              Secured by Paystack · One-time fee · No recurring charges
+            </Text>
           </View>
         </View>
       </View>
@@ -1331,7 +1719,7 @@ const PinModal = ({ visible, mode, onSuccess, onClose, userId }) => {
     setTimeout(() => setShaking(false), 500);
   };
 
-  const handleDigit = (d) => {
+  const handleDigit = async (d) => {
     setError("");
     if (mode === "setup") {
       if (step === "enter") {
@@ -1342,24 +1730,22 @@ const PinModal = ({ visible, mode, onSuccess, onClose, userId }) => {
         const next = confirmPin + d;
         setConfirmPin(next);
         if (next.length === 4) {
-          // validate match
           if (next !== pin) {
             setError("PINs don't match. Try again.");
             shake();
             setTimeout(() => { setConfirmPin(""); setStep("enter"); setPin(""); }, 600);
           } else {
-            try { localStorage.setItem(storageKey, pin); } catch {}
+            try { await AsyncStorage.setItem(storageKey, pin); } catch {}
             onSuccess();
           }
         }
       }
     } else {
-      // verify mode
       const next = pin + d;
       setPin(next);
       if (next.length === 4) {
         let saved = "";
-        try { saved = localStorage.getItem(storageKey) || ""; } catch {}
+        try { saved = await AsyncStorage.getItem(storageKey) || ""; } catch {}
         if (next === saved) {
           onSuccess();
         } else {
@@ -1457,49 +1843,87 @@ const PinModal = ({ visible, mode, onSuccess, onClose, userId }) => {
 // ══════════════════════════════════════════════════════════════════════════
 // SCREENS
 // ══════════════════════════════════════════════════════════════════════════
-
 function HomeScreen({ user, setUser, onTabChange, onUpgrade, onRefresh, refreshing, onBellPress, unreadCount, balanceHidden, onToggleHide, C, language, t }) {
   const [tasks,        setTasks]        = useState([]);
   const [leaders,      setLeaders]      = useState([]);
+  // const [completedIds, setCompletedIds] = useState([]);
+  const [showAllLeaders, setShowAllLeaders] = useState(false);
   const [completedIds, setCompletedIds] = useState([]);
 
-  const storageKey = `pe_completed_${user?.uid}`;
+useEffect(() => {
+  AsyncStorage.getItem("pe_completed_tasks").then(raw => {
+    if (raw) setCompletedIds(JSON.parse(raw));
+  });
+}, []);
 
-  const loadCompletedIds = () => {
+const markTaskDone = async (taskId) => {
+  const updated = [...completedIds, taskId];
+  setCompletedIds(updated);
+  await AsyncStorage.setItem("pe_completed_tasks", JSON.stringify(updated));
+};
+ 
+  const storageKey = `pe_completed_${user?.uid}`;
+ 
+  // ── Load completed IDs from localStorage ──────────────────────────────────
+  // ── Load completed IDs from AsyncStorage ──────────────────────────────────
+  const loadCompletedIds = async () => {
     try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) setCompletedIds(JSON.parse(stored));
-    } catch {}
+      const stored = await AsyncStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
   };
 
-  const saveCompletedId = (id) => {
+  // ── Save a newly completed task ID ────────────────────────────────────────
+  const saveCompletedId = async (id) => {
     try {
-      const stored  = localStorage.getItem(storageKey);
-      const current = stored ? JSON.parse(stored) : [];
+      const current = await loadCompletedIds();
       const updated = [...new Set([...current, id])];
-      localStorage.setItem(storageKey, JSON.stringify(updated));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
       setCompletedIds(updated);
     } catch {}
   };
 
-  useEffect(() => {
-    fetchData();
-    loadCompletedIds();
-  }, []);
-
+  // ── Fetch tasks AND merge with AsyncStorage completedIds ───────────────────
   const fetchData = async () => {
+    const localIds = await loadCompletedIds();
+    setCompletedIds(localIds);
+
     try {
       const [tasksRes, leadersRes] = await Promise.all([
         api("/tasks"),
         fetch(`${BASE_URL}/leaderboard`).then(r => r.json()),
       ]);
-      if (tasksRes.success)   setTasks(tasksRes.data.tasks);
+
+      if (tasksRes.success) {
+        const fetchedTasks = tasksRes.data.tasks;
+        const backendCompletedIds = fetchedTasks
+          .filter(t => t.status === "completed" || t.userCompleted === true)
+          .map(t => t.id);
+        const mergedIds = [...new Set([...localIds, ...backendCompletedIds])];
+        try { await AsyncStorage.setItem(storageKey, JSON.stringify(mergedIds)); } catch {}
+        setCompletedIds(mergedIds);
+        setTasks(fetchedTasks);
+      }
+
       if (leadersRes.success) setLeaders(leadersRes.data.leaders);
+
     } catch (err) {
       console.error("Home fetch error:", err);
     }
-  };
+  };                  // ← this closes fetchData
 
+  useEffect(() => {   // ← this comes after
+    fetchData();
+  }, []);
+ 
+  // ── Re-fetch when user changes (e.g. after task completion) ───────────────
+  useEffect(() => {
+    if (user?.uid) {
+      const localIds = loadCompletedIds();
+      setCompletedIds(localIds);
+    }
+  }, [user?.uid]);
+ 
   const getGreeting = () => {
     const now  = new Date();
     const hour = now.getHours();
@@ -1523,7 +1947,7 @@ function HomeScreen({ user, setUser, onTabChange, onUpgrade, onRefresh, refreshi
     const dayMsg  = options[Math.floor(Math.random() * options.length)];
     return `${timeGreeting} · ${dayMsg}`;
   };
-
+ 
   const getDateTime = () => {
     const now = new Date();
     const dateStr = now.toLocaleDateString("en-US", {
@@ -1532,10 +1956,10 @@ function HomeScreen({ user, setUser, onTabChange, onUpgrade, onRefresh, refreshi
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     return `${dateStr} · ${timeStr}`;
   };
-
+ 
   const handleStart = async (task, onDone) => {
     try {
-      const res = await api(`/tasks/${task.id}/complete`, { method:"POST" });
+      const res = await api(`/tasks/${task.id}/complete`, { method: "POST" });
       if (res.success) {
         saveCompletedId(task.id);
         const userRes = await AuthService.getMe();
@@ -1550,369 +1974,849 @@ function HomeScreen({ user, setUser, onTabChange, onUpgrade, onRefresh, refreshi
       if (onDone) onDone();
     }
   };
-
+ 
   const myRank = leaders.findIndex(l => l.uid === user?.uid);
-
+ 
   return (
     <ScrollView
       style={[s.screen, { backgroundColor: C.bg }]}
-      contentContainerStyle={{ paddingBottom:32 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.blue}/>}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.blue} />}
     >
       {/* Header */}
       <View style={[s.header, { backgroundColor: C.bg }]}>
-        <View style={{ flex:1 }}>
+        <View style={{ flex: 1 }}>
           <Text style={[s.greet, { color: C.muted }]}>{getGreeting()}</Text>
           <Text style={[s.name, { color: C.dark }]}>{user?.firstName} {user?.lastName}</Text>
-          <Text style={{ fontFamily:fonts.regular, fontSize:11, color:C.slate, marginTop:3 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: C.slate, marginTop: 3 }}>
             {getDateTime()}
           </Text>
         </View>
         {(user?.isActivated || user?.isAdmin) && (
-          <View style={s.premBadge}><Ico.Crown sz={12}/><Text style={s.premBadgeTxt}>Active</Text></View>
+          <View style={[s.premBadge, { backgroundColor: C.card }]}>
+            <Ico.Crown sz={12} />
+            <Text style={[s.premBadgeTxt, { color: C.gold }]}>Active</Text>
+          </View>
         )}
         <TouchableOpacity style={[s.bellBtn, { backgroundColor: C.card }]} onPress={onBellPress}>
-          <Ico.Bell cl={C.dark}/>
+          <Ico.Bell cl={C.dark} />
           {unreadCount > 0 && (
-            <View style={[s.bellDot, { minWidth:16, height:16, borderRadius:8, alignItems:"center", justifyContent:"center", paddingHorizontal:3 }]}>
-              <Text style={{ fontFamily:fonts.black, fontSize:9, color:"#FFFFFF" }}>
+            <View style={[s.bellDot, { minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }]}>
+              <Text style={{ fontFamily: fonts.black, fontSize: 9, color: "#FFFFFF" }}>
                 {unreadCount > 9 ? "9+" : unreadCount}
               </Text>
             </View>
           )}
         </TouchableOpacity>
       </View>
-
+ 
       {/* Balance card */}
-      <View style={{ marginHorizontal:16, marginBottom:18 }}>
+      <View style={{ marginHorizontal: 16, marginBottom: 18 }}>
         <View style={s.balCard}>
-          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius:24, backgroundColor:C.blue, overflow:"hidden" }}>
-            <View style={{ position:"absolute", width:200, height:200, borderRadius:100, backgroundColor:"#3B82F6", opacity:0.4, top:-60, right:-40 }}/>
-            <View style={{ position:"absolute", width:140, height:140, borderRadius:70, backgroundColor:"#06B6D4", opacity:0.3, bottom:-30, left:20 }}/>
+          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, backgroundColor: C.blue, overflow: "hidden" }}>
+            <View style={{ position: "absolute", width: 200, height: 200, borderRadius: 100, backgroundColor: "#3B82F6", opacity: 0.4, top: -60, right: -40 }} />
+            <View style={{ position: "absolute", width: 140, height: 140, borderRadius: 70, backgroundColor: "#06B6D4", opacity: 0.3, bottom: -30, left: 20 }} />
           </View>
           <Text style={s.balLabel}>{t("availableBalance")}</Text>
-          <View style={{ flexDirection:"row", alignItems:"center", gap:10, marginBottom:2 }}>
-            <Text style={[s.balAmt, balanceHidden && { letterSpacing:6, fontSize:32 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2 }}>
+            <Text style={[s.balAmt, balanceHidden && { letterSpacing: 6, fontSize: 32 }]}>
               {fmtAmt(user?.balance, balanceHidden)}
             </Text>
             <TouchableOpacity onPress={onToggleHide} activeOpacity={0.75}
-              style={{ width:36, height:36, borderRadius:18, backgroundColor:"rgba(255,255,255,0.22)", alignItems:"center", justifyContent:"center" }}>
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" }}>
               {balanceHidden
-                ? <Ico.EyeOff sz={24} cl="#FFFFFF"/>
-                : <Ico.Eye    sz={24} cl="#FFFFFF"/>
+                ? <Ico.EyeOff sz={24} cl="#FFFFFF" />
+                : <Ico.Eye sz={24} cl="#FFFFFF" />
               }
             </TouchableOpacity>
           </View>
           <Text style={s.balSub}>{t("totalEarned")}: {fmtAmt(user?.totalEarned, balanceHidden)}</Text>
-          <View style={{ flexDirection:"row", gap:10, marginTop:18 }}>
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
             <TouchableOpacity style={s.balBtn} onPress={() => onTabChange("wallet")}>
-              <Text style={{ fontFamily:fonts.bold, fontSize:13, color:C.blue }}>{t("withdraw")}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: C.blue }}>{t("withdraw")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.balBtn, { backgroundColor:"rgba(255,255,255,0.15)", borderWidth:1, borderColor:"rgba(255,255,255,0.3)" }]}
+            <TouchableOpacity
+              style={[s.balBtn, { backgroundColor: "rgba(255,255,255,0.15)", borderWidth: 1, borderColor: "rgba(255,255,255,0.3)" }]}
               onPress={() => onTabChange("wallet")}>
-              <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#FFFFFF", opacity:0.9 }}>{t("history")}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: "#FFFFFF", opacity: 0.9 }}>{t("history")}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
-
+ 
       {/* Stats row */}
-      <View style={{ flexDirection:"row", gap:10, marginHorizontal:16, marginBottom:18 }}>
+      <View style={{ flexDirection: "row", gap: 10, marginHorizontal: 16, marginBottom: 18 }}>
         {[
-          { label: t("tasksDone"), val: balanceHidden ? MASK : (user?.tasksCompleted || 0), icon:<Ico.Promo sz={15} cl={C.blue}/>,  color:C.blue  },
-          { label: t("referrals"), val: balanceHidden ? MASK : (user?.referralsCount || 0), icon:<Ico.Refer sz={15} cl={C.green}/>, color:C.green },
-          { label: t("rank"),      val: balanceHidden ? MASK : (myRank >= 0 ? `#${myRank+1}` : "—"), icon:<Ico.Trophy sz={15}/>,   color:C.gold  },
-        ].map((st,i) => (
-          <View key={i} style={[s.statCard, { borderTopColor:st.color, backgroundColor: C.card }]}>
-            <View style={[s.statIcon, { backgroundColor:st.color+"18" }]}>{st.icon}</View>
-            <Text style={[s.statVal, { color: C.dark }, balanceHidden && { fontSize:14, letterSpacing:2 }]}>{st.val}</Text>
+          { label: t("tasksDone"), val: balanceHidden ? MASK : (user?.tasksCompleted || 0), icon: <Ico.Promo sz={15} cl={C.blue} />, color: C.blue },
+          { label: t("referrals"), val: balanceHidden ? MASK : (user?.referralsCount || 0), icon: <Ico.Refer sz={15} cl={C.green} />, color: C.green },
+          { label: t("rank"), val: balanceHidden ? MASK : (myRank >= 0 ? `#${myRank + 1}` : "—"), icon: <Ico.Trophy sz={15} />, color: C.gold },
+        ].map((st, i) => (
+          <View key={i} style={[s.statCard, { borderTopColor: st.color, backgroundColor: C.card }]}>
+            <View style={[s.statIcon, { backgroundColor: st.color + "18" }]}>{st.icon}</View>
+            <Text style={[s.statVal, { color: C.dark }, balanceHidden && { fontSize: 14, letterSpacing: 2 }]}>{st.val}</Text>
             <Text style={[s.statLbl, { color: C.muted }]}>{st.label}</Text>
           </View>
         ))}
       </View>
-
+ 
       {/* Activation upsell */}
       {!(user?.isActivated || user?.isAdmin) && (
-        <TouchableOpacity onPress={onUpgrade} activeOpacity={0.9} style={{ marginHorizontal:16, marginBottom:18 }}>
+        <TouchableOpacity onPress={onUpgrade} activeOpacity={0.9} style={{ marginHorizontal: 16, marginBottom: 18 }}>
           <View style={s.upsell}>
-            <View style={{ ...StyleSheet.absoluteFillObject, borderRadius:18, backgroundColor:C.dark, overflow:"hidden" }}>
-              <View style={{ position:"absolute", width:150, height:150, borderRadius:75, backgroundColor:C.gold, opacity:0.12, top:-40, right:-20 }}/>
+            <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 18, backgroundColor: C.bg === "#FFFFFF" ? "#0F172A" : "#1E293B", overflow: "hidden" }}>
+              <View style={{ position: "absolute", width: 150, height: 150, borderRadius: 75, backgroundColor: C.gold, opacity: 0.12, top: -40, right: -20 }} />
             </View>
-            <Ico.Crown sz={22}/>
-            <View style={{ flex:1, marginLeft:12 }}>
-              <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFFFFF" }}>{t("activateAccount")}</Text>
-              <Text style={{ fontFamily:fonts.regular, fontSize:12, color:"rgba(255,255,255,0.6)", marginTop:2 }}>{t("activateSubtitle")}</Text>
+            <Ico.Crown sz={22} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#FFFFFF" }}>{t("activateAccount")}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{t("activateSubtitle")}</Text>
             </View>
-            <View style={{ width:30, height:30, borderRadius:15, backgroundColor:C.gold, alignItems:"center", justifyContent:"center" }}>
-              <Text style={{ color:C.dark, fontWeight:"800" }}>→</Text>
+            <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: C.dark, fontWeight: "800" }}>→</Text>
             </View>
           </View>
         </TouchableOpacity>
       )}
-
+ 
       {/* Tasks preview */}
-      <View style={{ paddingHorizontal:16, marginBottom:18 }}>
-        <SH title={t("latestTasks")} action={`${t("promoSpace")} →`} onAction={() => onTabChange("promo")} C={C}/>
-        {tasks.slice(0,3).map(task => (
+      <View style={{ paddingHorizontal: 16, marginBottom: 18 }}>
+        <SH title={t("latestTasks")} action={`${t("promoSpace")} →`} onAction={() => onTabChange("promo")} C={C} />
+        {tasks.slice(0, 3).map(task => (
           <TaskCard
-            key={task.id} task={task}
+            key={task.id}
+            task={task}
             locked={!(user?.isActivated || user?.isAdmin)}
-            completedIds={completedIds}
+            completedIds={completedIds}   // ← always up to date now
             onStart={handleStart}
           />
         ))}
         {tasks.length === 0 && (
-          <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", paddingVertical:20 }}>{t("noTasksYet")}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted, textAlign: "center", paddingVertical: 20 }}>
+            {t("noTasksYet")}
+          </Text>
         )}
       </View>
-
+ 
       {/* Leaderboard */}
-      <View style={{ paddingHorizontal:16 }}>
-        <SH title={t("topEarners")} C={C}/>
+      <View style={{ paddingHorizontal: 16 }}>
+        <SH title={t("topEarners")} C={C} />
         <View style={[s.lbBox, { backgroundColor: C.card }]}>
-          {leaders.slice(0,5).map((u, i) => {
+        {leaders.slice(0, 3).map((u, i) => {
             const isMe = u.uid === user?.uid;
             return (
               <View key={u.uid} style={[
                 s.lbRow,
-                i < Math.min(leaders.length,5)-1 && { borderBottomWidth:1, borderBottomColor:C.border },
-                isMe && { backgroundColor: C.blue+"18" },
+                i < Math.min(leaders.length, 5) - 1 && { borderBottomWidth: 1, borderBottomColor: C.border },
+                isMe && { backgroundColor: C.blue + "18" },
               ]}>
-                <Text style={[s.lbRank, { color: C.muted }, i===0&&{color:C.gold}, i===1&&{color:"#94A3B8"}, i===2&&{color:"#CD7F32"}]}>#{u.rank}</Text>
-                <View style={[s.lbAv, isMe && { backgroundColor: C.blue+"25" }]}>
+                <Text style={[s.lbRank, { color: C.muted }, i === 0 && { color: C.gold }, i === 1 && { color: "#94A3B8" }, i === 2 && { color: "#CD7F32" }]}>#{u.rank}</Text>
+                <View style={[s.lbAv, isMe && { backgroundColor: C.blue + "25" }]}>
                   <Text style={[s.lbAvTxt, { color: C.blue }]}>{u.firstName?.[0]}{u.lastName?.[0]}</Text>
                 </View>
-                <Text style={[s.lbName, { color: C.dark }, isMe && { color:C.blue, fontFamily:fonts.bold }]}>{u.username}{isMe ? " (you)" : ""}</Text>
+                <Text style={[s.lbName, { color: C.dark }, isMe && { color: C.blue, fontFamily: fonts.bold }]}>
+                  {u.username}{isMe ? " (you)" : ""}
+                </Text>
                 <Text style={[s.lbEarned, { color: C.green }]}>${u.totalEarned.toFixed(2)}</Text>
-                {i===0 && <Ico.Trophy/>}
+                {i === 0 && <Ico.Trophy />}
               </View>
             );
           })}
           {leaders.length === 0 && (
-            <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", padding:20 }}>{t("noDataYet")}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted, textAlign: "center", padding: 20 }}>
+              {t("noDataYet")}
+            </Text>
           )}
+          {leaders.length > 3 && (
+  <TouchableOpacity
+    onPress={() => setShowAllLeaders(true)}
+    style={{ alignItems: "center", paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.border }}
+    activeOpacity={0.8}>
+    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: C.blue }}>
+      See All Top 15 →
+    </Text>
+  </TouchableOpacity>
+)}
         </View>
       </View>
+      <Modal visible={showAllLeaders} animationType="slide" transparent>
+  <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.5)", justifyContent:"flex-end" }}>
+    <View style={{ backgroundColor:C.white, borderTopLeftRadius:28, borderTopRightRadius:28, maxHeight:"85%", paddingBottom: Platform.OS==="ios" ? 44 : 28 }}>
+      <View style={{ width:40, height:4, backgroundColor:C.border, borderRadius:2, alignSelf:"center", marginTop:12, marginBottom:4 }}/>
+      <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:C.border }}>
+        <Text style={{ fontFamily:fonts.black, fontSize:18, color:C.dark }}>Top 15 Earners</Text>
+        <TouchableOpacity onPress={() => setShowAllLeaders(false)}>
+          <Text style={{ fontSize:18, color:C.muted }}>✕</Text>
+        </TouchableOpacity>
+      </View>
+      <ScrollView contentContainerStyle={{ paddingHorizontal:20, paddingTop:16, paddingBottom:40 }}>
+        {leaders.slice(0, 15).map((u, i) => {
+          const isMe = u.uid === user?.uid;
+          return (
+            <View key={u.uid} style={[
+              s.lbRow,
+              i < Math.min(leaders.length, 15) - 1 && { borderBottomWidth:1, borderBottomColor:C.border },
+              isMe && { backgroundColor: C.blue + "18" },
+            ]}>
+              <Text style={[s.lbRank, { color:C.muted }, i===0&&{color:C.gold}, i===1&&{color:"#94A3B8"}, i===2&&{color:"#CD7F32"}]}>#{u.rank}</Text>
+              <View style={[s.lbAv, isMe && { backgroundColor:C.blue+"25" }]}>
+                <Text style={[s.lbAvTxt, { color:C.blue }]}>{u.firstName?.[0]}{u.lastName?.[0]}</Text>
+              </View>
+              <Text style={[s.lbName, { color:C.dark }, isMe&&{color:C.blue, fontFamily:fonts.bold}]}>
+                {u.username}{isMe ? " (you)" : ""}
+              </Text>
+              <Text style={[s.lbEarned, { color:C.green }]}>${u.totalEarned.toFixed(2)}</Text>
+              {i === 0 && <Ico.Trophy />}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  </View>
+</Modal>
     </ScrollView>
   );
 }
+ 
 
-// ══════════════════════════════════════════════════════════════════════════
-// PROMOSPACE SCREEN — full 3-tab version (Earn | Advertise | Marketplace)
-// ══════════════════════════════════════════════════════════════════════════
-function PromoSpaceScreen({ user, setUser, onUpgrade, C, language, t }) {
-  const [activeTab,    setActiveTab]    = useState("tasks");
-  const [filter,       setFilter]       = useState("all");
-  const [tasks,        setTasks]        = useState([]);
-  const [completedIds, setCompletedIds] = useState([]);
-  const [loadingTasks, setLoadingTasks] = useState(true);
-  const locked = !(user?.isActivated || user?.isAdmin);
-  const FILTERS = ["all","social","video","share","review","survey"];
+
+// ── Withdrawal PIN Modal ───────────────────────────────────────────────────
+function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
+  const [pin,        setPin]        = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [step,       setStep]       = useState("enter");
+  const [error,      setError]      = useState("");
 
   useEffect(() => {
-    fetchTasks();
-    loadCompletedIds();
-  }, []);
+    if (visible) { setPin(""); setConfirmPin(""); setStep("enter"); setError(""); }
+  }, [visible]);
 
-  const loadCompletedIds = () => {
-    try {
-      const stored = localStorage.getItem(`pe_completed_${user?.uid}`);
-      if (stored) setCompletedIds(JSON.parse(stored));
-    } catch {}
-  };
+  const storageKey = `pe_withdraw_pin_${userId}`;
 
-  const saveCompletedId = (id) => {
-    try {
-      const key     = `pe_completed_${user?.uid}`;
-      const stored  = localStorage.getItem(key);
-      const current = stored ? JSON.parse(stored) : [];
-      const updated = [...new Set([...current, id])];
-      localStorage.setItem(key, JSON.stringify(updated));
-      setCompletedIds(updated);
-    } catch {}
-  };
-
-  const fetchTasks = async () => {
-    setLoadingTasks(true);
-    try {
-      const res = await api("/tasks");
-      if (res.success) setTasks(res.data.tasks);
-    } catch (err) {
-      console.error("Fetch tasks error:", err);
-    } finally {
-      setLoadingTasks(false);
-    }
-  };
-
-  const handleStart = async (task, onDone) => {
-    try {
-      const res = await api(`/tasks/${task.id}/complete`, { method:"POST" });
-      if (res.success) {
-        saveCompletedId(task.id);
-        const userRes = await AuthService.getMe();
-        if (userRes.success && setUser) setUser(userRes.data.user);
-        Alert.alert("🎉 Task Complete!", `+$${parseFloat(task.reward).toFixed(2)} added to your balance!`);
+  const handleDigit = async (d) => {
+    setError("");
+    if (mode === "setup") {
+      if (step === "enter") {
+        const next = pin + d;
+        setPin(next);
+        if (next.length === 4) setStep("confirm");
       } else {
-        Alert.alert("Oops", res.message || "Failed to complete task.");
+        const next = confirmPin + d;
+        setConfirmPin(next);
+        if (next.length === 4) {
+          if (next !== pin) {
+            setError("PINs don't match. Try again.");
+            setTimeout(() => { setConfirmPin(""); setStep("enter"); setPin(""); }, 600);
+          } else {
+            try { await AsyncStorage.setItem(storageKey, pin); } catch {}
+            onSuccess();
+          }
+        }
       }
-    } catch {
-      Alert.alert("Error", "Failed to complete task.");
-    } finally {
-      if (onDone) onDone();
+    } else {
+      const next = pin + d;
+      setPin(next);
+      if (next.length === 4) {
+        let saved = "";
+        try { saved = await AsyncStorage.getItem(storageKey) || ""; } catch {}
+        if (next === saved) {
+          onSuccess();
+        } else {
+          setError("Wrong PIN. Try again.");
+          setTimeout(() => setPin(""), 600);
+        }
+      }
+    }
+  };
+  const handleDelete = () => {
+    setError("");
+    if (mode === "setup" && step === "confirm") {
+      setConfirmPin(prev => prev.slice(0,-1));
+    } else {
+      setPin(prev => prev.slice(0,-1));
     }
   };
 
-  const filtered      = filter === "all" ? tasks : tasks.filter(t => t.type === filter);
-  const totalEarnable = tasks.reduce((s, t) => s + parseFloat(t.reward || 0), 0);
-  const doneCount     = tasks.filter(t => completedIds.includes(t.id)).length;
+  const currentVal = mode === "setup" && step === "confirm" ? confirmPin : pin;
+  const DIGITS = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]];
 
-  const TABS = [
-    { key:"tasks",       label:"Earn",        icon:<Ico.Task      sz={15} cl={activeTab==="tasks"       ? C.blue : C.muted}/> },
-    { key:"advertise",   label:"Advertise",   icon:<Ico.Megaphone sz={15} cl={activeTab==="advertise"   ? C.blue : C.muted}/> },
-    { key:"marketplace", label:"Marketplace", icon:<Ico.Store     sz={15} cl={activeTab==="marketplace" ? C.blue : C.muted}/> },
-  ];
+  const title = mode === "setup"
+    ? (step === "enter" ? "Create Withdrawal PIN" : "Confirm your PIN")
+    : "Enter Withdrawal PIN";
+  const subtitle = mode === "setup"
+    ? (step === "enter" ? "Set a 4-digit PIN to secure your withdrawals" : "Re-enter your PIN to confirm")
+    : "Enter your PIN to authorize this withdrawal";
 
+  if (!visible) return null;
   return (
-    <View style={{ flex:1, backgroundColor:C.light }}>
+    <Modal visible={visible} animationType="fade" transparent>
+      <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.65)", alignItems:"center", justifyContent:"center", paddingHorizontal:28 }}>
+        <View style={{ backgroundColor:C.card, borderRadius:28, padding:28, width:"100%", alignItems:"center" }}>
+          <TouchableOpacity onPress={onClose}
+            style={{ position:"absolute", top:16, right:16, width:32, height:32, borderRadius:16, backgroundColor:C.input, alignItems:"center", justifyContent:"center" }}>
+            <Text style={{ fontSize:16, color:C.muted }}>✕</Text>
+          </TouchableOpacity>
 
-      {/* ── Header ── */}
-      <View style={{ paddingHorizontal:20, paddingTop:Platform.OS==="ios"?56:40, paddingBottom:16, backgroundColor:C.white, borderBottomWidth:1, borderBottomColor:C.border }}>
-        <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"flex-start" }}>
-          <View>
-            <Text style={{ fontFamily:fonts.black, fontSize:26, color:C.dark, letterSpacing:-0.5 }}>PromoSpace</Text>
-            <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, marginTop:2 }}>Earn · Advertise · Grow</Text>
+          <View style={{ width:60, height:60, borderRadius:30, backgroundColor:C.blue+"20", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+            <Text style={{ fontSize:28 }}>{mode==="setup" ? "🔐" : "🔒"}</Text>
           </View>
-          {!locked && activeTab === "tasks" && (
-            <View style={{ backgroundColor:C.greenSoft, borderRadius:12, paddingHorizontal:12, paddingVertical:8, alignItems:"center" }}>
-              <Text style={{ fontFamily:fonts.black, fontSize:16, color:C.green }}>{doneCount}/{tasks.length}</Text>
-              <Text style={{ fontFamily:fonts.regular, fontSize:10, color:C.green }}>Completed</Text>
-            </View>
-          )}
-        </View>
+          <Text style={{ fontFamily:fonts.black, fontSize:20, color:C.dark, marginBottom:6 }}>{title}</Text>
+          <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", marginBottom:24 }}>{subtitle}</Text>
 
-        {/* Tab switcher */}
-        <View style={{ flexDirection:"row", backgroundColor:C.light, borderRadius:14, padding:3, marginTop:16 }}>
-          {TABS.map(t => (
-            <TouchableOpacity
-              key={t.key}
-              onPress={() => setActiveTab(t.key)}
-              activeOpacity={0.8}
-              style={[ps.tab, activeTab === t.key && ps.tabActive]}>
-              {t.icon}
-              <Text style={[ps.tabTxt, activeTab === t.key && ps.tabTxtActive]}>{t.label}</Text>
-              {t.key === "marketplace" && (
-                <View style={{ backgroundColor:C.gold, borderRadius:6, paddingHorizontal:5, paddingVertical:1, marginLeft:2 }}>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:8, color:C.white }}>SOON</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
+          {/* Dots */}
+          <View style={{ flexDirection:"row", gap:14, marginBottom:8 }}>
+            {[0,1,2,3].map(i => (
+              <View key={i} style={{ width:14, height:14, borderRadius:7,
+                backgroundColor: currentVal.length > i ? C.blue : C.border }}/>
+            ))}
+          </View>
+          {error ? <Text style={{ fontFamily:fonts.medium, fontSize:12, color:C.red, marginTop:8, marginBottom:4 }}>⚠️ {error}</Text> : <View style={{ height:24 }}/>}
+
+          {/* Numpad */}
+          <View style={{ width:"100%", gap:10, marginTop:8 }}>
+            {DIGITS.map((row, ri) => (
+              <View key={ri} style={{ flexDirection:"row", gap:10 }}>
+                {row.map((d, di) => (
+                  <TouchableOpacity key={di}
+                    onPress={() => d === "⌫" ? handleDelete() : d !== "" ? handleDigit(d) : null}
+                    activeOpacity={d===""?1:0.7}
+                    style={{ flex:1, height:58, borderRadius:16,
+                      backgroundColor: d==="" ? "transparent" : d==="⌫" ? "#FFF5F5" : C.input,
+                      alignItems:"center", justifyContent:"center",
+                      borderWidth: d===""?0:1.5,
+                      borderColor: d==="⌫" ? "#FECACA" : C.border }}>
+                    <Text style={{ fontFamily:fonts.bold, fontSize:d==="⌫"?20:22, color:d==="⌫"?C.red:C.dark }}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </View>
         </View>
       </View>
-
-      {/* ── EARN TASKS TAB ── */}
-      {activeTab === "tasks" && (
-        <View style={{ flex:1 }}>
-          {!locked && (
-            <View style={ps.banner}>
-              <View style={{ position:"absolute", width:120, height:120, borderRadius:60, backgroundColor:"rgba(255,255,255,0.08)", top:-30, right:-10 }}/>
-              <View style={{ flex:1 }}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:14, color:C.white }}>Today's Potential</Text>
-                <Text style={{ fontFamily:fonts.regular, fontSize:12, color:"rgba(255,255,255,0.75)", marginTop:2 }}>
-                  Earn up to <Text style={{ fontFamily:fonts.bold, color:C.white }}>${totalEarnable.toFixed(2)}</Text> completing all tasks
-                </Text>
-              </View>
-              <View style={{ alignItems:"center" }}>
-                <Text style={{ fontFamily:fonts.black, fontSize:22, color:C.white }}>{Math.round((doneCount / Math.max(tasks.length,1))*100)}%</Text>
-                <Text style={{ fontFamily:fonts.regular, fontSize:10, color:"rgba(255,255,255,0.7)" }}>done</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Filter chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight:52 }} contentContainerStyle={{ paddingHorizontal:16, paddingVertical:8, gap:8 }}>
-            {FILTERS.map(f => (
-              <FilterChip key={f} label={f.charAt(0).toUpperCase()+f.slice(1)} active={filter===f} onPress={() => setFilter(f)}/>
-            ))}
-          </ScrollView>
-
-          {/* Task list */}
-          <ScrollView contentContainerStyle={{ paddingHorizontal:16, paddingBottom:32, paddingTop:8 }} showsVerticalScrollIndicator={false}>
-            {loadingTasks ? (
-              <View style={{ alignItems:"center", paddingVertical:48 }}>
-                <ActivityIndicator color={C.blue} size="large"/>
-                <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, marginTop:12 }}>Loading tasks...</Text>
-              </View>
-            ) : filtered.length === 0 ? (
-              <View style={{ alignItems:"center", paddingVertical:48 }}>
-                <Text style={{ fontSize:40, marginBottom:12 }}>📭</Text>
-                <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.dark }}>No tasks found</Text>
-                <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, marginTop:4 }}>Check back later for new tasks</Text>
-              </View>
-            ) : (
-              [...filtered.filter(t => !completedIds.includes(t.id)), ...filtered.filter(t => completedIds.includes(t.id))].map(t => (
-                <TaskCard
-                  key={t.id} task={t}
-                  locked={locked}
-                  completedIds={completedIds}
-                  onStart={handleStart}
-                />
-              ))
-            )}
-          </ScrollView>
-
-          {/* Gate overlay for locked users */}
-          {locked && (
-            <View style={ps.gate}>
-              <View style={ps.gateBg}/>
-              <View style={ps.gateCard}>
-                <View style={{ width:60, height:60, borderRadius:30, backgroundColor:C.goldSoft, alignItems:"center", justifyContent:"center", marginBottom:14 }}>
-                  <Ico.Crown sz={28}/>
-                </View>
-                <Text style={{ fontFamily:fonts.black, fontSize:20, color:C.dark, marginBottom:8 }}>Unlock All Tasks</Text>
-                <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", lineHeight:20, marginBottom:22 }}>
-                  Activate your account with a one-time $3.00 fee to access all earning tasks.
-                </Text>
-                <TouchableOpacity style={ps.gateBtn} onPress={onUpgrade} activeOpacity={0.85}>
-                  <Ico.Crown sz={15} cl={C.dark}/>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:15, color:C.dark }}>Activate · $3.00</Text>
-                </TouchableOpacity>
-                <Text style={{ fontFamily:fonts.regular, fontSize:11, color:C.muted, marginTop:10 }}>One-time · $0.33 welcome bonus</Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* ── ADVERTISE TAB ── */}
-      {activeTab === "advertise" && (
-        <AdvertiseSection user={user}/>
-      )}
-
-      {/* ── MARKETPLACE TAB ── */}
-      {activeTab === "marketplace" && (
-        <ScrollView contentContainerStyle={{ paddingBottom:40 }} showsVerticalScrollIndicator={false}>
-          <MarketplaceLocked/>
-        </ScrollView>
-      )}
-    </View>
+    </Modal>
   );
 }
 
-// ── PromoSpace styles ──────────────────────────────────────────────────────
-const ps = StyleSheet.create({
-  tab:        { flex:1, flexDirection:"row", alignItems:"center", justifyContent:"center", gap:5, paddingVertical:9, borderRadius:11 },
-  tabActive:  { backgroundColor:"#FFFFFF", shadowColor:"#000", shadowOffset:{width:0,height:1}, shadowOpacity:0.06, shadowRadius:4, elevation:2 },
-  tabTxt:     { fontFamily:fonts.semibold, fontSize:12, color:"#64748B" },
-  tabTxtActive:{ fontFamily:fonts.bold, color:"#0F172A" },
-  banner:     { marginHorizontal:16, marginTop:14, marginBottom:4, backgroundColor:"#1A56DB", borderRadius:18, padding:18, flexDirection:"row", alignItems:"center", gap:16, overflow:"hidden" },
-  gate:       { ...StyleSheet.absoluteFillObject, alignItems:"center", justifyContent:"center", zIndex:10, paddingHorizontal:28 },
-  gateBg:     { ...StyleSheet.absoluteFillObject, backgroundColor:"rgba(248,250,255,0.94)" },
-  gateCard:   { backgroundColor:"#FFFFFF", borderRadius:24, padding:28, alignItems:"center", shadowColor:"#000", shadowOffset:{width:0,height:8}, shadowOpacity:0.12, shadowRadius:24, elevation:12, width:"100%" },
-  gateBtn:    { flexDirection:"row", alignItems:"center", gap:8, backgroundColor:"#F59E0B", borderRadius:14, paddingHorizontal:28, paddingVertical:14 },
-});
+// ── Withdraw Form ──────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 1: Add this import at the very top of MainApp.jsx with the other imports:
+//
+//   import { loadSavedAccounts } from "./PayoutMethodsscreen";
+//
+// STEP 2: Replace the entire WithdrawForm function in MainApp.jsx with the
+//         function below.
+//
+// STEP 3: In ProfileScreen inside MainApp.jsx, make sure PayoutMethodsScreen
+//         receives the user prop:
+//
+//   <PayoutMethodsScreen visible={showPayout} onClose={() => setShowPayout(false)} user={user} darkMode={darkMode} />
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
+  const [step,           setStep]           = useState("pin");
+  const [savedAccounts,  setSavedAccounts]  = useState([]);
+  const [loadingAccounts,setLoadingAccounts]= useState(true);
+  const [selectedSaved,  setSelectedSaved]  = useState(null); // chosen saved account or null
+  const [showSavedList,  setShowSavedList]  = useState(false);
+
+  // Manual-entry state (used when no saved account selected)
+  const [banks,          setBanks]          = useState([]);
+  const [loadingBanks,   setLoadingBanks]   = useState(false);
+  const [bankSearch,     setBankSearch]     = useState("");
+  const [showBankList,   setShowBankList]   = useState(false);
+  const [selectedBank,   setSelectedBank]   = useState(null);
+  const [accountNumber,  setAccountNumber]  = useState("");
+  const [accountName,    setAccountName]    = useState("");
+  const [verifying,      setVerifying]      = useState(false);
+
+  const [amount,         setAmount]         = useState("");
+  const [submitting,     setSubmitting]     = useState(false);
+  const [error,          setError]          = useState("");
+  const [pinMode,        setPinMode]        = useState("setup");
+  const [showPin,        setShowPin]        = useState(true);
+
+  const WITHDRAWAL_FEE = 0.33;
+  const NGN_RATE       = 1500;
+  const withdrawAmt    = parseFloat(amount) || 0;
+  const youReceive     = withdrawAmt > 0 ? Math.max(0, withdrawAmt - WITHDRAWAL_FEE) : 0;
+  const nairaEquiv     = youReceive * NGN_RATE;
+
+  const pinStorageKey  = `pe_withdraw_pin_${user?.uid}`;
+  const hasPin = async () => { try { return !!(await AsyncStorage.getItem(pinStorageKey)); } catch { return false; } };
+
+  // ── On mount ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    hasPin().then(exists => setPinMode(exists ? "verify" : "setup"));
+    fetchBanks();
+
+    // Load saved payout accounts
+    loadSavedAccounts(user?.uid).then((accs) => {
+      setSavedAccounts(accs);
+      // Auto-select default account
+      const def = accs.find(a => a.isDefault) || (accs.length > 0 ? accs[0] : null);
+      if (def) applyAccount(def);
+      setLoadingAccounts(false);
+    });
+  }, []);
+
+  const fetchBanks = async () => {
+    setLoadingBanks(true);
+    try {
+      const res = await api("/payments/banks");
+      if (res.success) setBanks(res.data.banks);
+    } catch {}
+    finally { setLoadingBanks(false); }
+  };
+
+  // Apply a saved account — fills all account fields instantly, no verification needed
+  const applyAccount = (acc) => {
+    setSelectedSaved(acc);
+    setAccountNumber(acc.accountNumber);
+    setAccountName(acc.accountName);
+    setSelectedBank({ name: acc.bankName, code: acc.bankCode || "" });
+    setError("");
+  };
+
+  // Clear back to manual entry
+  const clearAccount = () => {
+    setSelectedSaved(null);
+    setAccountNumber("");
+    setAccountName("");
+    setSelectedBank(null);
+    setError("");
+  };
+
+  const handlePinSuccess = () => {
+    setShowPin(false);
+    setStep("form");
+  };
+
+  // Auto-verify when 10 digits + bank selected (manual mode only)
+  useEffect(() => {
+    if (selectedSaved) return; // skip — already have account name from saved
+    if (accountNumber.length === 10 && selectedBank?.code) {
+      handleVerifyAccount();
+    } else {
+      setAccountName("");
+    }
+  }, [accountNumber, selectedBank]);
+
+  const handleVerifyAccount = async () => {
+    setVerifying(true); setError(""); setAccountName("");
+    try {
+      const res = await api("/payments/verify-account", {
+        method: "POST",
+        body:   { accountNumber, bankCode: selectedBank.code },
+      });
+      if (res.success) {
+        setAccountName(res.data.accountName);
+      } else {
+        setError(res.message || "Account not found. Check the details.");
+      }
+    } catch {
+      setError("Verification failed. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    const amt = parseFloat(amount);
+    if (!amt || amt < 3.50)            { setError("Minimum withdrawal is $3.34."); return; }
+    if (!accountName)                  { setError("Please verify your account first."); return; }
+    if ((user?.balance || 0) < amt)    { setError("Insufficient balance."); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await api("/payments/withdraw", {
+        method: "POST",
+        body: {
+          amount:        amt,
+          accountNumber,
+          bankCode:      selectedBank?.code || "",
+          bankName:      selectedBank?.name || "",
+          accountName,
+        },
+      });
+      if (res.success) {
+        setStep("done");
+      } else {
+        setError(res.message || "Withdrawal failed. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredBanks = banks.filter(b =>
+    b.name.toLowerCase().includes(bankSearch.toLowerCase())
+  );
+
+  const mask = (num) => num ? `${"•".repeat(num.length - 4)}${num.slice(-4)}` : "";
+
+  // ── PIN gate ──────────────────────────────────────────────────────────────
+  if (showPin) {
+    return (
+      <WithdrawalPinModal
+        visible={showPin}
+        mode={pinMode}
+        userId={user?.uid}
+        C={C}
+        onSuccess={handlePinSuccess}
+        onClose={onCancel}
+      />
+    );
+  }
+
+  // ── Success ───────────────────────────────────────────────────────────────
+  if (step === "done") {
+    return (
+      <View style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: C.card, borderRadius: 20, padding: 28, alignItems: "center" }}>
+        <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: "#F0FDF4", alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 2, borderColor: C.green }}>
+          <Text style={{ fontSize: 36 }}>✅</Text>
+        </View>
+        <Text style={{ fontFamily: fonts.black, fontSize: 22, color: C.dark, textAlign: "center", marginBottom: 8 }}>Withdrawal Submitted!</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: C.muted, textAlign: "center", lineHeight: 22, marginBottom: 8 }}>
+          <Text style={{ fontFamily: fonts.bold, color: C.green }}>${youReceive.toFixed(2)}</Text> (₦{nairaEquiv.toLocaleString()}) will be sent to
+        </Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted, textAlign: "center", marginBottom: 16 }}>
+  Your withdrawal will be processed within 24 hours.
+</Text>
+        <View style={{ backgroundColor: C.input, borderRadius: 14, padding: 14, width: "100%", marginBottom: 24 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: C.dark, textAlign: "center" }}>{accountName}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted, textAlign: "center", marginTop: 4 }}>
+            {selectedBank?.name} · {mask(accountNumber)}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={{ backgroundColor: C.blue, borderRadius: 14, height: 50, alignItems: "center", justifyContent: "center", width: "100%" }}
+          onPress={onSuccess} activeOpacity={0.85}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#fff" }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ── Main form ─────────────────────────────────────────────────────────────
+  return (
+    <View style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: C.card, borderRadius: 20, padding: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 }}>
+
+      {/* Header */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: C.dark }}>Withdraw Funds</Text>
+        <TouchableOpacity onPress={onCancel} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.input, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: C.muted, fontSize: 16 }}>✕</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── SAVED ACCOUNTS SECTION ─────────────────────────────────────────── */}
+      {loadingAccounts ? (
+        <View style={{ paddingVertical: 14, alignItems: "center", marginBottom: 10 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted }}>Loading your accounts...</Text>
+        </View>
+      ) : savedAccounts.length > 0 ? (
+        <View style={{ marginBottom: 18 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            Payout Account
+          </Text>
+
+          {selectedSaved ? (
+            // Selected saved account card
+            <View style={{ borderRadius: 14, borderWidth: 2, borderColor: C.blue, backgroundColor: C.blue + "0A", padding: 14 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: C.blue + "20", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.black, fontSize: 13, color: C.blue }}>
+                    {selectedSaved.bankName?.slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: C.dark }}>{selectedSaved.bankName}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: C.muted, marginTop: 1 }}>{selectedSaved.accountName}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: C.muted, marginTop: 1, letterSpacing: 1 }}>
+                    {mask(selectedSaved.accountNumber)}
+                  </Text>
+                </View>
+                {selectedSaved.isDefault && (
+                  <View style={{ backgroundColor: C.blue + "18", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: C.blue }}>Default</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.blue + "20" }}>
+                {savedAccounts.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => setShowSavedList(true)}
+                    style={{ flex: 1, height: 36, borderRadius: 10, backgroundColor: C.blue + "15", alignItems: "center", justifyContent: "center" }}
+                    activeOpacity={0.8}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: C.blue }}>Change Account</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={clearAccount}
+                  style={{ flex: 1, height: 36, borderRadius: 10, backgroundColor: C.input, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border }}
+                  activeOpacity={0.8}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: C.muted }}>Enter Manually</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            // No saved account chosen — show picker button
+            <TouchableOpacity
+              onPress={() => setShowSavedList(true)}
+              style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 14, height: 52, gap: 10 }}
+              activeOpacity={0.8}>
+              <Text style={{ fontSize: 20 }}>🏦</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: C.muted }}>
+                Choose a saved account
+              </Text>
+              <Text style={{ color: C.muted, fontSize: 16 }}>›</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Divider between saved section and manual section */}
+          {!selectedSaved && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 14 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: C.muted }}>or enter manually below</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+            </View>
+          )}
+        </View>
+      ) : null}
+
+      {/* ── MANUAL ENTRY — shown only when no saved account is selected ─────── */}
+      {!selectedSaved && (
+        <>
+          {/* Bank Selector */}
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            Select Bank
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowBankList(true)}
+            style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 14, height: 52, marginBottom: 14 }}
+            activeOpacity={0.8}>
+            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: selectedBank ? C.dark : C.slate }}>
+              {selectedBank ? selectedBank.name : loadingBanks ? "Loading banks..." : "Select your bank"}
+            </Text>
+            <Text style={{ color: C.muted }}>▼</Text>
+          </TouchableOpacity>
+
+          {/* Account Number */}
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            Account Number
+          </Text>
+          <View style={[{
+            flexDirection: "row", alignItems: "center", backgroundColor: C.input,
+            borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, height: 52, marginBottom: 6,
+            borderColor: accountName ? C.green : verifying ? C.blue : C.border,
+          }]}>
+            <TextInput
+              style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: C.dark }}
+              placeholder="10-digit account number"
+              placeholderTextColor={C.slate}
+              keyboardType="numeric"
+              maxLength={10}
+              value={accountNumber}
+              onChangeText={v => { setAccountNumber(v.replace(/\D/g, "")); setAccountName(""); setError(""); }}
+            />
+            {verifying && <ActivityIndicator size="small" color={C.blue} />}
+            {accountName ? <Text style={{ fontSize: 16 }}>✅</Text> : null}
+          </View>
+        </>
+      )}
+
+      {/* Account name confirmation row */}
+      {accountName ? (
+        <View style={{ backgroundColor: C.green + "15", borderRadius: 10, padding: 10, marginBottom: 14, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ fontSize: 16 }}>✅</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: C.green }}>{accountName}</Text>
+        </View>
+      ) : null}
+
+      {!accountName && !selectedSaved && accountNumber.length === 10 && !verifying ? (
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: C.red, marginBottom: 10 }}>
+          Account not found. Check your number and bank.
+        </Text>
+      ) : null}
+
+      {/* ── AMOUNT ─────────────────────────────────────────────────────────── */}
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: 4 }}>
+        Amount ($)
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 14, height: 52, marginBottom: 14 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: C.muted, marginRight: 6 }}>$</Text>
+        <TextInput
+          style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: C.dark }}
+          placeholder="Min. $3.34"
+          placeholderTextColor={C.slate}
+          keyboardType="numeric"
+          value={amount}
+          onChangeText={v => { setAmount(v); setError(""); }}
+        />
+        {withdrawAmt > 0 && (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: C.muted }}>
+            ≈ ₦{((withdrawAmt - WITHDRAWAL_FEE) * NGN_RATE).toLocaleString()}
+          </Text>
+        )}
+      </View>
+
+      {/* Fee breakdown */}
+      {withdrawAmt >= 3.50 && (
+        <View style={{ backgroundColor: C.input, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: C.dark, marginBottom: 10 }}>Payout Breakdown</Text>
+          {[
+            { lbl: "You withdraw",      val: `$${withdrawAmt.toFixed(2)}`,      color: C.dark  },
+            { lbl: "Processing fee",    val: `– $${WITHDRAWAL_FEE.toFixed(2)}`, color: C.red   },
+            { lbl: "You receive (USD)", val: `$${youReceive.toFixed(2)}`,        color: C.green },
+            { lbl: "Naira equivalent",  val: `₦${nairaEquiv.toLocaleString()}`,  color: C.blue  },
+          ].map((row, i) => (
+            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderTopWidth: i === 2 ? 1 : 0, borderTopColor: C.border, marginTop: i === 2 ? 4 : 0 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: C.muted }}>{row.lbl}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: row.color }}>{row.val}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Error */}
+      {error ? (
+        <View style={{ backgroundColor: "#FFF5F5", borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#FECACA" }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: C.red, textAlign: "center" }}>⚠️ {error}</Text>
+        </View>
+      ) : null}
+
+      {/* Submit button */}
+      <TouchableOpacity
+        style={{
+          backgroundColor: (!accountName || !amount || parseFloat(amount) < 3.50 || submitting) ? C.border : C.green,
+          borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center",
+        }}
+        onPress={handleSubmit}
+        disabled={!accountName || !amount || parseFloat(amount) < 3.50 || submitting}
+        activeOpacity={0.85}>
+        {submitting
+          ? <ActivityIndicator color="#fff" />
+          : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: (!accountName || !amount || parseFloat(amount) < 3.50) ? C.muted : "#fff" }}>
+              {accountName ? `Withdraw $${amount} →` : "Select or verify account first"}
+            </Text>
+        }
+      </TouchableOpacity>
+
+      {/* ── SAVED ACCOUNTS LIST MODAL ──────────────────────────────────────── */}
+      <Modal visible={showSavedList} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "75%", paddingBottom: Platform.OS === "ios" ? 44 : 20 }}>
+            <View style={{ width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 4 }} />
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border }}>
+              <Text style={{ fontFamily: fonts.black, fontSize: 18, color: C.dark }}>Choose Account</Text>
+              <TouchableOpacity onPress={() => setShowSavedList(false)}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.input, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 16, color: C.muted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 8 }}>
+              {savedAccounts.map((acc, i) => (
+                <TouchableOpacity
+                  key={acc.id}
+                  onPress={() => { applyAccount(acc); setShowSavedList(false); }}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row", alignItems: "center",
+                    paddingHorizontal: 20, paddingVertical: 16, gap: 14,
+                    borderBottomWidth: i < savedAccounts.length - 1 ? 1 : 0,
+                    borderBottomColor: C.border,
+                    backgroundColor: selectedSaved?.id === acc.id ? C.blue + "10" : "transparent",
+                  }}>
+                  <View style={{ width: 46, height: 46, borderRadius: 13, backgroundColor: C.blue + "20", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontFamily: fonts.black, fontSize: 14, color: C.blue }}>
+                      {acc.bankName?.slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: C.dark }}>{acc.bankName}</Text>
+                      {acc.isDefault && (
+                        <View style={{ backgroundColor: C.blue + "18", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: C.blue }}>Default</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: C.muted }}>{acc.accountName}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: C.muted, marginTop: 1, letterSpacing: 1 }}>
+                      {mask(acc.accountNumber)}
+                    </Text>
+                  </View>
+                  {selectedSaved?.id === acc.id && (
+                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: C.blue, alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ color: "#fff", fontSize: 14 }}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              onPress={() => { setShowSavedList(false); clearAccount(); }}
+              style={{ marginHorizontal: 20, marginTop: 8, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, alignItems: "center", justifyContent: "center" }}
+              activeOpacity={0.8}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: C.muted }}>+ Enter account manually</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── BANK LIST MODAL (manual entry only) ────────────────────────────── */}
+      <Modal visible={showBankList} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "80%", paddingBottom: Platform.OS === "ios" ? 44 : 20 }}>
+            <View style={{ width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 16 }} />
+            <Text style={{ fontFamily: fonts.black, fontSize: 18, color: C.dark, paddingHorizontal: 20, marginBottom: 14 }}>Select Bank</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, marginHorizontal: 20, paddingHorizontal: 14, height: 46, marginBottom: 10 }}>
+              <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
+              <TextInput
+                style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: C.dark }}
+                placeholder="Search bank..."
+                placeholderTextColor={C.slate}
+                value={bankSearch}
+                onChangeText={setBankSearch}
+              />
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {filteredBanks.map((bank, i) => (
+                <TouchableOpacity
+                  key={bank.id}
+                  onPress={() => { setSelectedBank(bank); setShowBankList(false); setBankSearch(""); }}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, gap: 14,
+                    borderBottomWidth: i < filteredBanks.length - 1 ? 1 : 0, borderBottomColor: C.border,
+                    backgroundColor: selectedBank?.code === bank.code ? C.blue + "12" : "transparent",
+                  }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: C.blue + "20", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontFamily: fonts.black, fontSize: 12, color: C.blue }}>{bank.name.slice(0, 2).toUpperCase()}</Text>
+                  </View>
+                  <Text style={{ flex: 1, fontFamily: selectedBank?.code === bank.code ? fonts.bold : fonts.medium, fontSize: 14, color: selectedBank?.code === bank.code ? C.blue : C.dark }}>
+                    {bank.name}
+                  </Text>
+                  {selectedBank?.code === bank.code && <Text style={{ color: C.blue }}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+              {filteredBanks.length === 0 && (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: C.muted, textAlign: "center", padding: 24 }}>No banks found</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 // ══════════════════════════════════════════════════════════════════════════
 // WALLET SCREEN
 // ══════════════════════════════════════════════════════════════════════════
@@ -1925,7 +2829,7 @@ function WalletScreen({ user, onUserUpdate, balanceHidden, onToggleHide, C, lang
   const [withdrawn,      setWithdrawn]      = useState(0);
 
   const withdrawAmt    = parseFloat(withdrawForm.amount) || 0;
-  const WITHDRAWAL_FEE = 1.00;
+  const WITHDRAWAL_FEE = 0.00;
   const youReceive     = withdrawAmt > 0 ? Math.max(0, withdrawAmt - WITHDRAWAL_FEE) : 0;
   const nairaEquiv     = youReceive * 1500;
 
@@ -1937,8 +2841,12 @@ function WalletScreen({ user, onUserUpdate, balanceHidden, onToggleHide, C, lang
       if (res.success) {
         setTransactions(res.data.transactions);
         const w = res.data.transactions
-          .filter(tx => tx.type === "withdrawal" && tx.status === "approved")
-          .reduce((s, tx) => s + Math.abs(tx.amount || 0), 0);
+        .filter(tx => 
+          tx.type === "withdrawal" && 
+          (tx.status === "completed" || tx.status === "pending" || tx.status === "approved")
+        )
+        .reduce((s, tx) => s + Math.abs(tx.amount || 0), 0);
+      setWithdrawn(w);
         setWithdrawn(w);
       }
     } catch (err) {
@@ -1948,7 +2856,7 @@ function WalletScreen({ user, onUserUpdate, balanceHidden, onToggleHide, C, lang
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawForm.amount);
-    if (!amount || amount < 3.50) { Alert.alert("Minimum withdrawal is $3.50"); return; }
+    if (!amount || amount < 1.00) { Alert.alert("Minimum withdrawal is $3.34"); return; }
     if (!withdrawForm.accountNumber || !withdrawForm.bankName) { Alert.alert("Please fill all fields"); return; }
     setSubmitting(true);
     try {
@@ -2032,7 +2940,16 @@ function WalletScreen({ user, onUserUpdate, balanceHidden, onToggleHide, C, lang
           <View style={[s.walActionIco, { backgroundColor:"#F0FDF4" }]}><Ico.Up sz={17} cl={C.green}/></View>
           <Text style={[s.walActionTxt, { color: C.dark }]}>{t("withdraw")}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.walAction, { backgroundColor: C.card }]} activeOpacity={0.85}>
+        <TouchableOpacity
+  style={[s.walAction, { backgroundColor: C.card }]}
+  activeOpacity={0.85}
+  onPress={async () => {
+    try {
+      await Share.share({
+        message: `Join PromoEarn and earn real money!\nUse my referral code: ${user?.referralCode || user?.username}\nDownload: https://promoearn.com`,
+      });
+    } catch {}
+  }}>
           <View style={[s.walActionIco, { backgroundColor:"#EEF4FF" }]}><Ico.Share sz={17} cl={C.blue}/></View>
           <Text style={[s.walActionTxt, { color: C.dark }]}>{t("referAndEarn")}</Text>
         </TouchableOpacity>
@@ -2113,66 +3030,22 @@ function WalletScreen({ user, onUserUpdate, balanceHidden, onToggleHide, C, lang
         </View>
       )}
 
-      {/* Withdraw form */}
+
       {showWithdraw && (
-        <View style={{ marginHorizontal:16, marginBottom:20, backgroundColor:C.card, borderRadius:20, padding:20, shadowColor:"#000", shadowOffset:{width:0,height:2}, shadowOpacity:0.05, shadowRadius:10, elevation:2 }}>
-          <Text style={{ fontFamily:fonts.bold, fontSize:15, color:C.dark, marginBottom:4 }}>{t("withdrawFunds")}</Text>
-          <Text style={{ fontFamily:fonts.regular, fontSize:12, color:C.muted, marginBottom:16 }}>{t("allAmountsUSD")}</Text>
+     <WithdrawForm
+       user={user}
+       C={C}
+       t={t}
+       onSuccess={() => {
+         setShowWithdraw(false);
+         fetchTransactions();
+         if (onUserUpdate) onUserUpdate();   // ← FIXED
+       }}
+       onCancel={() => setShowWithdraw(false)}
+     />
+   )}
 
-          {[
-            { lbl: t("amount"),        key:"amount",        numeric:true  },
-            { lbl: t("accountNumber"), key:"accountNumber", numeric:true  },
-            { lbl: t("bankName"),      key:"bankName",      numeric:false },
-          ].map((field, i) => (
-            <View key={i} style={{ marginBottom:14 }}>
-              <Text style={{ fontFamily:fonts.semibold, fontSize:11, color:C.muted, marginBottom:6, textTransform:"uppercase", letterSpacing:0.5 }}>{field.lbl}</Text>
-              <View style={{ flexDirection:"row", alignItems:"center", backgroundColor:C.input, borderRadius:12, borderWidth:1.5, borderColor:C.border, paddingHorizontal:14, height:50 }}>
-                {i===0 && <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.muted, marginRight:6 }}>$</Text>}
-                <TextInput
-                  style={{ flex:1, fontFamily:fonts.medium, fontSize:15, color:C.dark }}
-                  placeholder={field.lbl} placeholderTextColor={C.slate}
-                  keyboardType={field.numeric ? "numeric" : "default"}
-                  value={withdrawForm[field.key]}
-                  onChangeText={v => setWithdrawForm(prev => ({ ...prev, [field.key]: v }))}
-                />
-              </View>
-            </View>
-          ))}
-
-          {/* Live fee breakdown */}
-          {withdrawAmt > 0 && (
-            <View style={{ backgroundColor:C.input, borderRadius:12, padding:14, marginBottom:14, borderWidth:1, borderColor:C.border }}>
-              <Text style={{ fontFamily:fonts.bold, fontSize:12, color:C.dark, marginBottom:10 }}>Payout Breakdown</Text>
-              {[
-                { lbl: t("youWithdraw"),    val:`$${withdrawAmt.toFixed(2)}`,          color:C.dark  },
-                { lbl: t("processingFee"),  val:`– $${WITHDRAWAL_FEE.toFixed(2)}`,     color:C.red   },
-                { lbl: t("youReceiveUSD"),  val:`$${youReceive.toFixed(2)}`,            color:C.green },
-                { lbl: t("nairaEquivalent"),val:`₦${nairaEquiv.toLocaleString()}`,      color:C.blue  },
-              ].map((row, i) => (
-                <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:5, borderTopWidth:i===2?1:0, borderTopColor:C.border, marginTop:i===2?4:0, paddingTop:i===2?8:5 }}>
-                  <Text style={{ fontFamily:fonts.regular, fontSize:12, color:C.muted }}>{row.lbl}</Text>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:12, color:row.color }}>{row.val}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Fee warning chip */}
-          <View style={{ backgroundColor:"#FFF5F5", borderRadius:10, padding:12, marginBottom:14, flexDirection:"row", gap:8, alignItems:"flex-start" }}>
-            <Text style={{ fontSize:14, flexShrink:0 }}>⚠️</Text>
-            <Text style={{ fontFamily:fonts.medium, fontSize:11, color:"#991B1B", flex:1, lineHeight:16 }}>
-              A <Text style={{ fontFamily:fonts.bold }}>$1.00 fee</Text> will be deducted. Rate: <Text style={{ fontFamily:fonts.bold }}>$1 = ₦1,500</Text>. Processed in 24–48 hrs.
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={{ backgroundColor:C.green, borderRadius:14, height:50, alignItems:"center", justifyContent:"center", opacity:submitting?0.7:1 }}
-            onPress={handleWithdraw} activeOpacity={0.85} disabled={submitting}>
-            <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFFFFF" }}>{submitting ? t("submitting") : t("requestWithdrawal")}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
+      
       {/* Transaction History */}
       <View style={{ paddingHorizontal:16 }}>
         <SH title={t("transactionHistory")} C={C}/>
@@ -2220,7 +3093,17 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
       console.error("Fetch referrals error:", err);
     }
   };
-
+  const handleShare = async () => {
+    try {
+      const { Share } = require("react-native");
+      await Share.share({
+        message: `Join PromoEarn and earn real money! Use my referral code: ${user?.referralCode || user?.username}\n\nDownload the app: https://expo.dev/artifacts/eas/YOUR-BUILD-ID.apk?ref=${user?.referralCode || user?.username}`,
+        title: "Join PromoEarn",
+      });
+    } catch (err) {
+      // user cancelled
+    }
+  };
   const formatJoined = (ts) => {
     if (!ts?._seconds) return "—";
     const diff = Date.now() - ts._seconds * 1000;
@@ -2256,7 +3139,11 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
             </Text>
             <View style={{ flexDirection:"row", gap:10 }}>
               <TouchableOpacity
-                onPress={() => { setCopied(true); setTimeout(()=>setCopied(false),2000); }}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(user?.referralCode || user?.username || "");
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
                 style={{ flexDirection:"row", alignItems:"center", gap:7, backgroundColor:"#FFFFFF", borderRadius:12, paddingHorizontal:16, paddingVertical:10 }}
                 activeOpacity={0.85}>
                 <Ico.Copy sz={14} cl={C.blue}/>
@@ -2265,11 +3152,12 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ flexDirection:"row", alignItems:"center", gap:7, backgroundColor:"rgba(255,255,255,0.15)", borderRadius:12, paddingHorizontal:16, paddingVertical:10, borderWidth:1, borderColor:"rgba(255,255,255,0.3)" }}
-                activeOpacity={0.85}>
-                <Ico.Share sz={14} cl="#FFFFFF"/>
-                <Text style={{ fontFamily:fonts.semibold, fontSize:13, color:"#FFFFFF" }}>{t("share")}</Text>
-              </TouchableOpacity>
+  onPress={handleShare}
+  style={{ flexDirection:"row", alignItems:"center", gap:7, backgroundColor:"rgba(255,255,255,0.15)", borderRadius:12, paddingHorizontal:16, paddingVertical:10, borderWidth:1, borderColor:"rgba(255,255,255,0.3)" }}
+  activeOpacity={0.85}>
+  <Ico.Share sz={14} cl="#FFFFFF"/>
+  <Text style={{ fontFamily:fonts.semibold, fontSize:13, color:"#FFFFFF" }}>{t("share")}</Text>
+</TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2279,7 +3167,7 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
           {[
             { lbl: t("totalReferrals"), val: referrals.length },
             { lbl: t("refEarnings"),    val: `$${earnings.toFixed(2)}`, green:true },
-            { lbl: t("perReferral"),    val: "$1.00", gold:true },
+            { lbl: t("perReferral"),    val: "$1.33", gold:true },
           ].map((st,i) => (
             <View key={i} style={{ flex:1, backgroundColor:C.card, borderRadius:16, padding:14, alignItems:"center", shadowColor:"#000", shadowOffset:{width:0,height:2}, shadowOpacity:0.04, shadowRadius:8, elevation:1 }}>
               <Text style={{ fontFamily:fonts.extrabold, fontSize:18, color:st.green?C.green:st.gold?C.gold:C.dark }}>{st.val}</Text>
@@ -2324,7 +3212,7 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
                   <Text style={{ fontFamily:fonts.regular, fontSize:12, color:C.muted }}>Joined {formatJoined(ref.joinedAt)}</Text>
                 </View>
                 <View style={{ alignItems:"flex-end" }}>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:C.green }}>+$1.00</Text>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:C.green }}>+$1.33</Text>
                   <View style={{ backgroundColor:ref.isActive ? C.green+"18" : C.border, paddingHorizontal:8, paddingVertical:3, borderRadius:6, marginTop:4 }}>
                     <Text style={{ fontFamily:fonts.semibold, fontSize:10, color:ref.isActive?C.green:C.muted }}>
                       {ref.isActive ? "active" : "inactive"}
@@ -2380,15 +3268,23 @@ function ProfileScreen({ user, onUpgrade, onLogout, onHelp, balanceHidden, C, la
     { icon:<Ico.Bell   sz={16} cl={C.gold}/>,   lbl: t("notifications"),   bg: C.gold+"18",   onPress:() => setShowNotifs(true)   },
     { icon:<Ico.Gear   sz={16} cl={C.muted}/>,  lbl: t("accountSettings"), bg: C.border,      onPress:() => setShowSettings(true) },
     { icon:<Ico.Help   sz={16} cl={C.purple}/>, lbl: t("helpFeedback"),    bg: C.purple+"18", onPress:() => { setShowHelpModal(true); setFeedbackSent(false); } },
-    { icon:<Ico.Share  sz={16} cl={C.green}/>,  lbl: t("sharePromoEarn"),  bg: C.green+"18",  onPress:() => {} },
+    { icon:<Ico.Share  sz={16} cl={C.green}/>,  lbl: t("sharePromoEarn"),  bg: C.green+"18",  onPress: async () => {
+      try {
+        const { Share } = require("react-native");
+        await Share.share({
+          message: `Join PromoEarn and earn real money! Use my referral code: ${user?.referralCode || user?.username}\n\nDownload the app: https://expo.dev/artifacts/eas/YOUR-BUILD-ID.apk?ref=${user?.referralCode || user?.username}`,
+          title: "PromoEarn",
+        });
+      } catch {}
+    }},
   ];
 
   const FAQ_ITEMS = [
     { q:"How do I earn money?",                a:"Complete tasks in the PromoSpace tab. Each task shows how much you earn. Tap Start, do the task, then tap Done to claim your reward." },
-    { q:"When do I get paid?",                 a:"Withdrawal requests are processed within 24–48 hours. Funds are sent directly to your Nigerian bank account." },
-    { q:"What is the withdrawal fee?",         a:"There is a flat $1.00 processing fee deducted from every withdrawal. For example, withdrawing $5.00 gives you $4.00 in your bank." },
+    { q:"When do I get paid?",                 a:"Withdrawal requests are processed within 24 hours. Funds are sent directly to your Local bank account account." },
+    { q:"What is the withdrawal fee?",         a:"There is a flat $0.067 processing fee deducted from every withdrawal. For example, withdrawing $5.00 gives you $4.00 in your bank." },
     { q:"What is the conversion rate?",        a:"We convert your USD balance to Naira at a fixed rate of $1 = ₦1,500. All balances in the app are shown in US Dollars." },
-    { q:"How does the referral program work?", a:"Share your referral code. When a friend signs up and activates their account, you earn a $1.00 bonus instantly." },
+    { q:"How does the referral program work?", a:"Share your referral code. When a friend signs up and activates their account, you earn a $1.33 bonus instantly." },
     { q:"Why is my account locked?",           a:"You need to activate your account with a one-time $3.00 fee to access all tasks and features. Tap 'Activate Account' to get started." },
     { q:"How do I contact support?",           a:"Use the Feedback tab in this screen to send us a message, or email us at support@promoearn.com. We respond within 24 hours." },
   ];
@@ -2476,7 +3372,7 @@ function ProfileScreen({ user, onUpgrade, onLogout, onHelp, balanceHidden, C, la
         {/* Log out button */}
         <View style={{ marginHorizontal:16 }}>
           <TouchableOpacity
-            style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:10, backgroundColor:"#FFF5F5", borderRadius:16, height:54, borderWidth:1.5, borderColor:"#FECACA" }}
+            style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:10, backgroundColor:C.red+"15", borderRadius:16, height:54, borderWidth:1.5, borderColor:C.red+"40" }}
             onPress={() => setShowLogout(true)} activeOpacity={0.85}>
             <Ico.Out sz={17} cl={C.red}/>
             <Text style={{ fontFamily:fonts.bold, fontSize:15, color:C.red }}>{t("logOut")}</Text>
@@ -2491,8 +3387,13 @@ function ProfileScreen({ user, onUpgrade, onLogout, onHelp, balanceHidden, C, la
         onConfirm={() => { setShowLogout(false); onLogout(); }}
         onCancel={() => setShowLogout(false)}
       />
-      <PayoutMethodsScreen visible={showPayout} onClose={() => setShowPayout(false)} />
-      <NotificationsScreen visible={showNotifs} onClose={() => setShowNotifs(false)} user={user} />
+  <PayoutMethodsScreen
+  visible={showPayout}
+  onClose={() => setShowPayout(false)}
+  user={user}
+  C={C}
+/>
+<NotificationsScreen visible={showNotifs} onClose={() => setShowNotifs(false)} user={user} C={C} />
       <AccountSettingsScreen
         visible={showSettings}
         onClose={() => setShowSettings(false)}
@@ -2700,50 +3601,38 @@ const t = (key) => TRANSLATIONS[language]?.[key] ?? TRANSLATIONS["en"][key] ?? k
 
   // ── Balance visibility state ──────────────────────────────────────────
   // Persisted in localStorage so it survives app restarts
-  const [balanceHidden, setBalanceHidden] = useState(() => {
-    try { return localStorage.getItem("pe_balance_hidden") === "true"; } catch { return false; }
-  });
-  // PIN modal mode: null | "setup" | "verify"
-  const [pinMode,  setPinMode]  = useState(null);
-
-  const pinKey = `pe_pin_${user?.uid}`;
-  const hasPin = () => { try { return !!localStorage.getItem(pinKey); } catch { return false; } };
-
-  // Tap the eye → decide whether to setup/verify or just hide
-  const handleToggleHide = () => {
-    if (balanceHidden) {
-      // Currently hidden → want to reveal → must verify PIN
-      if (hasPin()) {
-        setPinMode("verify");
-      } else {
-        // No PIN set yet → reveal directly (first time)
-        setBalanceHidden(false);
-        try { localStorage.setItem("pe_balance_hidden", "false"); } catch {}
-      }
-    } else {
-      // Currently visible → want to hide
-      if (hasPin()) {
-        // PIN already exists → hide directly, no prompt needed
-        setBalanceHidden(true);
-        try { localStorage.setItem("pe_balance_hidden", "true"); } catch {}
-      } else {
-        // No PIN yet → ask user to create one first
-        setPinMode("setup");
-      }
-    }
+   // ── Balance visibility state ──────────────────────────────────────────
+   const [balanceHidden, setBalanceHidden] = useState(false);
+   const [pinMode,  setPinMode]  = useState(null);
+ 
+   const pinKey = `pe_pin_${user?.uid}`;
+ 
+   // Load persisted balance hidden state on mount
+   useEffect(() => {
+     AsyncStorage.getItem("pe_balance_hidden").then(val => {
+       if (val === "true") setBalanceHidden(true);
+     });
+   }, []);
+ 
+   const hasPin = async () => {
+     try { return !!(await AsyncStorage.getItem(pinKey)); } catch { return false; }
+   };
+ 
+   const handleToggleHide = async () => {
+    const newVal = !balanceHidden;
+    setBalanceHidden(newVal);
+    await AsyncStorage.setItem("pe_balance_hidden", newVal ? "true" : "false");
   };
-
+// Add this temporarily in Main
   // Called when PIN modal succeeds
-  const handlePinSuccess = () => {
+  const handlePinSuccess = async () => {
     setPinMode(null);
     if (pinMode === "setup") {
-      // Just created PIN → now hide the balance
       setBalanceHidden(true);
-      try { localStorage.setItem("pe_balance_hidden", "true"); } catch {}
+      await AsyncStorage.setItem("pe_balance_hidden", "true");
     } else {
-      // Verified PIN → reveal balance
       setBalanceHidden(false);
-      try { localStorage.setItem("pe_balance_hidden", "false"); } catch {}
+      await AsyncStorage.setItem("pe_balance_hidden", "false");
     }
   };
 
@@ -2792,8 +3681,13 @@ const t = (key) => TRANSLATIONS[language]?.[key] ?? TRANSLATIONS["en"][key] ?? k
 
   const fetchUser = async () => {
     try {
+      const cached = await AsyncStorage.getItem("pe_cached_user");
+      if (cached) setUser(JSON.parse(cached));
       const res = await AuthService.getMe();
-      if (res.success) setUser(res.data.user);
+      if (res.success) {
+        setUser(res.data.user);
+        await AsyncStorage.setItem("pe_cached_user", JSON.stringify(res.data.user));
+      }
     } catch (err) {
       console.error("Fetch user error:", err);
     }
@@ -2810,7 +3704,7 @@ const t = (key) => TRANSLATIONS[language]?.[key] ?? TRANSLATIONS["en"][key] ?? k
       }
       if (finalStatus !== "granted") return;
       const token = (await Notifications.getExpoPushTokenAsync()).data;
-      const authToken = AuthService.getToken();
+      const authToken = await AuthService.getToken();
       await fetch(`${BASE_URL}/notifications/push-token`, {
         method:  "POST",
         headers: { "Content-Type":"application/json", Authorization:`Bearer ${authToken}` },
@@ -2830,24 +3724,13 @@ const t = (key) => TRANSLATIONS[language]?.[key] ?? TRANSLATIONS["en"][key] ?? k
   const openUpgrade = () => setShowPremium(true);
   const onProceed   = () => { setShowPremium(false); setShowStripe(true); };
 
-  const onPaid = async (sessionId) => {
+  const onPaid = async () => {
     setShowStripe(false);
-    try {
-      const res = await fetch(`${BASE_URL}/payments/verify-payment`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ sessionId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        await fetchUser();
-        Alert.alert("🎉 Account Activated!", "Welcome bonus of $0.87 has been added to your balance!");
-      } else {
-        Alert.alert("Error", data.message);
-      }
-    } catch {
-      Alert.alert("Error", "Failed to verify payment.");
-    }
+    await fetchUser();   // refresh user so isActivated = true, balance updated
+    Alert.alert(
+      "🎉 Account Activated!",
+      "Welcome to PromoEarn! Your $0.33 welcome bonus has been added to your balance."
+    );
   };
 
 const render = () => {
@@ -2855,7 +3738,7 @@ const render = () => {
     switch (tab) {
       case "home":     return <HomeScreen     {...themeProps} user={user} setUser={setUser} onTabChange={setTab} onUpgrade={openUpgrade} onRefresh={onRefresh} refreshing={refreshing} onBellPress={() => setShowNotifications(true)} unreadCount={unreadCount} balanceHidden={balanceHidden} onToggleHide={handleToggleHide}/>;
       case "promo":    return <PromoSpaceScreen {...themeProps} user={user} setUser={setUser} onUpgrade={openUpgrade}/>;
-      case "wallet":   return <WalletScreen   {...themeProps} user={user} onUserUpdate={fetchUser} balanceHidden={balanceHidden} onToggleHide={handleToggleHide}/>;
+      case "wallet": return <WalletScreen {...themeProps} user={user} onUserUpdate={fetchUser} onRefreshUser={fetchUser} balanceHidden={balanceHidden} onToggleHide={handleToggleHide}/>;
       case "referral": return <ReferralScreen {...themeProps} user={user} onUpgrade={openUpgrade}/>;
       case "profile":  return <ProfileScreen  {...themeProps} user={user} onUpgrade={openUpgrade} onLogout={onLogout} onDarkModeChange={handleDarkModeChange} onLanguageChange={handleLanguageChange} balanceHidden={balanceHidden}/>;
     }
@@ -2866,8 +3749,11 @@ const render = () => {
       <View style={{ flex:1 }}>{render()}</View>
       <TabBar active={tab} onChange={setTab} isActivated={!!(user?.isActivated || user?.isAdmin)} C={C} t={t}/>
       <PremiumModal visible={showPremium} onProceed={onProceed} onClose={() => setShowPremium(false)}/>
-      <NotificationsListScreen visible={showNotifications} onClose={() => setShowNotifications(false)} onUnreadChange={setUnreadCount}/>
-      <PaystackModal visible={showStripe} user={user} onSuccess={onPaid} onClose={() => setShowStripe(false)}/>
+      <NotificationsListScreen visible={showNotifications} onClose={() => setShowNotifications(false)} onUnreadChange={setUnreadCount} C={C} darkMode={darkMode}/>
+      
+<PaystackModal visible={showStripe} user={user} onSuccess={onPaid} onClose={() => setShowStripe(false)}/>
+
+
 
       {/* PIN modal — shown globally so it works from any tab */}
       <PinModal

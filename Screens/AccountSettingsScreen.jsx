@@ -1,11 +1,6 @@
 /**
  * AccountSettingsScreen.jsx — PromoEarn
- * Fully working settings: dark mode, language, 2FA,
- * change username, change password — all persisted via AsyncStorage
- *
- * darkMode / language are now lifted to MainApp so all screens share them.
- * Props: darkMode, language, onDarkModeChange, onLanguageChange
- * (falls back to internal state if props not provided for backwards-compat)
+ * Fixed: double /auth/ route bug, delete account modal, removed phone row, 2FA API connected
  */
 
 import { useState, useEffect } from "react";
@@ -19,7 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
 
-const BASE_URL = "http://localhost:5000/api/v1";
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth";
 const PREFS_KEY = "pe_user_preferences";
 
 // ── Themes ────────────────────────────────────────────────────────────────
@@ -65,6 +60,7 @@ const Ico = {
   Info:      ({sz=15,cl="#64748B"}) => <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={cl} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><Circle cx="12" cy="12" r="10"/><Line x1="12" y1="8" x2="12" y2="12"/><Line x1="12" y1="16" x2="12.01" y2="16"/></Svg>,
   Trash:     ({sz=17,cl="#EF4444"}) => <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={cl} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><Polyline points="3 6 5 6 21 6"/><Path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><Path d="M10 11v6"/><Path d="M14 11v6"/><Path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></Svg>,
   Out:       ({sz=17,cl="#EF4444"}) => <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={cl} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><Polyline points="16 17 21 12 16 7"/><Line x1="21" y1="12" x2="9" y2="12"/></Svg>,
+  Warning:   ({sz=24,cl="#EF4444"}) => <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={cl} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><Path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><Line x1="12" y1="9" x2="12" y2="13"/><Line x1="12" y1="17" x2="12.01" y2="17"/></Svg>,
 };
 
 // ── Password Strength Bar ─────────────────────────────────────────────────
@@ -128,16 +124,17 @@ function ChangeUsernameModal({ visible, onClose, user, C, onSuccess }) {
     setLoading(true); setError("");
     try {
       const token = await AuthService.getToken();
-      const res   = await fetch(`${BASE_URL}/auth/change-username`, {
+      // FIX: was ${BASE_URL}/auth/change-username (double /auth/)
+      const res   = await fetch(`${BASE_URL}/change-username`, {
         method:"POST",
         headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ newUsername: trimmed }),
+        body:JSON.stringify({ username: trimmed })
       });
       const data = await res.json();
       if (data.success) {
         onSuccess(trimmed);
         onClose();
-        Alert.alert("✅ Done!", `Username updated to @${trimmed}`);
+        Alert.alert("Done!", `Username updated to @${trimmed}`);
       } else {
         setError(data.message || "Failed to update username.");
       }
@@ -208,7 +205,8 @@ function ChangePasswordModal({ visible, onClose, C }) {
     setLoading(true);
     try {
       const token = await AuthService.getToken();
-      const res   = await fetch(`${BASE_URL}/auth/change-password`, {
+      // FIX: was ${BASE_URL}/auth/change-password (double /auth/)
+      const res   = await fetch(`${BASE_URL}/change-password`, {
         method:"POST",
         headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
         body:JSON.stringify({ currentPassword:cur, newPassword:newPw }),
@@ -216,7 +214,7 @@ function ChangePasswordModal({ visible, onClose, C }) {
       const data = await res.json();
       if (data.success) {
         onClose();
-        Alert.alert("✅ Password Updated", "Your password has been changed successfully.");
+        Alert.alert("Password Updated", "Your password has been changed successfully.");
       } else {
         setError(data.message || "Failed to update password.");
       }
@@ -306,17 +304,43 @@ function TwoFAModal({ visible, onClose, enabled, onConfirmToggle, C }) {
     if (code.length < 6) { setError("Enter the 6-digit code from your email."); return; }
     setLoading(true); setError("");
     try {
-      await new Promise(r => setTimeout(r, 1200));
-      onConfirmToggle(true);
-      setStep(3);
-    } catch { setError("Verification failed. Try again."); }
+      // FIX: actually calls the backend API now
+      const token = await AuthService.getToken();
+      const res = await fetch(`${BASE_URL}/toggle-2fa`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+        body:JSON.stringify({ enabled: true, code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onConfirmToggle(true);
+        setStep(3);
+      } else {
+        setError(data.message || "Verification failed. Try again.");
+      }
+    } catch { setError("Network error. Please try again."); }
     finally   { setLoading(false); }
   };
 
-  const handleDisable = () => {
-    onConfirmToggle(false);
-    onClose();
-    Alert.alert("2FA Disabled", "Two-factor authentication has been turned off.");
+  const handleDisable = async () => {
+    setLoading(true);
+    try {
+      const token = await AuthService.getToken();
+      const res = await fetch(`${BASE_URL}/toggle-2fa`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+        body:JSON.stringify({ enabled: false }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onConfirmToggle(false);
+        onClose();
+        Alert.alert("2FA Disabled", "Two-factor authentication has been turned off.");
+      } else {
+        Alert.alert("Error", data.message || "Failed to disable 2FA.");
+      }
+    } catch { Alert.alert("Error", "Network error. Please try again."); }
+    finally   { setLoading(false); }
   };
 
   return (
@@ -331,11 +355,11 @@ function TwoFAModal({ visible, onClose, enabled, onConfirmToggle, C }) {
                 <View style={{ width:64, height:64, borderRadius:32, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:12 }}>
                   <Ico.Shield sz={26} cl={C.green}/>
                 </View>
-                <Text style={[m.title, { color:C.dark }]}>2FA is Active ✅</Text>
+                <Text style={[m.title, { color:C.dark }]}>2FA is Active</Text>
                 <Text style={[m.sub, { color:C.muted }]}>Your account has extra protection. Disable with caution.</Text>
               </View>
-              <TouchableOpacity style={[m.btn, { backgroundColor:C.red }]} onPress={handleDisable} activeOpacity={0.85}>
-                <Text style={m.btnTxt}>Disable 2FA</Text>
+              <TouchableOpacity style={[m.btn, { backgroundColor:C.red, opacity:loading?0.6:1 }]} onPress={handleDisable} disabled={loading} activeOpacity={0.85}>
+                {loading ? <ActivityIndicator color="#fff"/> : <Text style={m.btnTxt}>Disable 2FA</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={[m.ghost, { borderColor:C.border }]} onPress={onClose} activeOpacity={0.8}>
                 <Text style={[m.ghostTxt, { color:C.muted }]}>Keep It On</Text>
@@ -419,6 +443,117 @@ function TwoFAModal({ visible, onClose, enabled, onConfirmToggle, C }) {
   );
 }
 
+// ── Delete Account Modal (NEW — designed, calls API) ──────────────────────
+function DeleteAccountModal({ visible, onClose, C, onDeleted }) {
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
+
+  useEffect(() => { if (visible) { setConfirm(""); setError(""); } }, [visible]);
+
+  const handleDelete = async () => {
+    if (confirm !== "DELETE") { setError('Type DELETE in capitals to confirm.'); return; }
+    setLoading(true); setError("");
+    try {
+      const token = await AuthService.getToken();
+      const res = await fetch(`${BASE_URL}/delete-account`, {
+        method: "DELETE",
+        headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        await AuthService.logout();
+        onClose();
+        onDeleted?.();
+      } else {
+        setError(data.message || "Failed to delete account. Please try again.");
+      }
+    } catch { setError("Network error. Please try again."); }
+    finally   { setLoading(false); }
+  };
+
+  const ready = confirm === "DELETE";
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.65)", alignItems:"center", justifyContent:"center", paddingHorizontal:24 }}>
+        <View style={{ backgroundColor:C.card, borderRadius:24, padding:28, width:"100%", maxWidth:400 }}>
+
+          {/* Warning Icon */}
+          <View style={{ alignItems:"center", marginBottom:20 }}>
+            <View style={{ width:72, height:72, borderRadius:36, backgroundColor:"#FFF1F1", alignItems:"center", justifyContent:"center", marginBottom:14, borderWidth:2, borderColor:"#FECACA" }}>
+              <Ico.Warning sz={30} cl="#EF4444"/>
+            </View>
+            <Text style={{ fontFamily:fonts.black, fontSize:22, color:"#EF4444", textAlign:"center", marginBottom:6 }}>
+              Delete Account?
+            </Text>
+            <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", lineHeight:20 }}>
+              This is permanent and cannot be undone. Everything will be erased.
+            </Text>
+          </View>
+
+          {/* What gets deleted */}
+          <View style={{ backgroundColor:"#FFF5F5", borderRadius:14, padding:14, marginBottom:20, borderWidth:1, borderColor:"#FECACA" }}>
+            {[
+              "Your account and profile",
+              "All earnings and balance",
+              "Task history and referrals",
+              "Payout methods and records",
+            ].map((item, i) => (
+              <View key={i} style={{ flexDirection:"row", alignItems:"center", gap:8, marginBottom:i<3?8:0 }}>
+                <View style={{ width:6, height:6, borderRadius:3, backgroundColor:"#EF4444" }}/>
+                <Text style={{ fontFamily:fonts.medium, fontSize:13, color:"#7F1D1D" }}>{item}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Confirmation input */}
+          <Text style={{ fontFamily:fonts.semibold, fontSize:12, color:C.muted, marginBottom:8 }}>
+            Type <Text style={{ fontFamily:fonts.black, color:"#EF4444" }}>DELETE</Text> to confirm
+          </Text>
+          <View style={{ backgroundColor:C.input, borderRadius:14, borderWidth:1.5,
+            borderColor: error ? "#EF4444" : confirm === "DELETE" ? "#10B981" : C.border,
+            paddingHorizontal:14, height:52, justifyContent:"center", marginBottom:8 }}>
+            <TextInput
+              style={{ fontFamily:fonts.bold, fontSize:16, color:C.dark, letterSpacing:2 }}
+              placeholder="DELETE"
+              placeholderTextColor={C.slate}
+              value={confirm}
+              onChangeText={v => { setConfirm(v.toUpperCase()); setError(""); }}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+          </View>
+          {error ? <Text style={{ fontFamily:fonts.medium, fontSize:12, color:"#EF4444", marginBottom:10 }}>{error}</Text> : null}
+
+          {/* Buttons */}
+          <TouchableOpacity
+            style={{ backgroundColor: ready ? "#EF4444" : "#FECACA", borderRadius:14, height:54,
+              alignItems:"center", justifyContent:"center", marginBottom:10, marginTop:4 }}
+            onPress={handleDelete}
+            disabled={loading || !ready}
+            activeOpacity={0.85}>
+            {loading
+              ? <ActivityIndicator color="#fff"/>
+              : <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#fff" }}>
+                  Yes, Delete My Account
+                </Text>
+            }
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ borderRadius:14, height:50, alignItems:"center", justifyContent:"center",
+              borderWidth:1.5, borderColor:C.border }}
+            onPress={onClose}
+            activeOpacity={0.8}>
+            <Text style={{ fontFamily:fonts.semibold, fontSize:14, color:C.muted }}>Cancel — Keep My Account</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ── Modal Styles ──────────────────────────────────────────────────────────
 const m = StyleSheet.create({
   overlay:  { flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" },
@@ -437,13 +572,11 @@ const m = StyleSheet.create({
 // ══════════════════════════════════════════════════════════════════════════
 export default function AccountSettingsScreen({
   visible, onClose, user, onLogout,
-  // Theme props from MainApp (preferred)
   darkMode: darkModeProp,
   language: languageProp,
   onDarkModeChange,
   onLanguageChange,
 }) {
-  // Use props if provided, otherwise manage locally (backwards compat)
   const isControlled = darkModeProp !== undefined;
 
   const [darkModeLocal,  setDarkModeLocal]  = useState(false);
@@ -455,22 +588,20 @@ export default function AccountSettingsScreen({
   const darkMode = isControlled ? darkModeProp  : darkModeLocal;
   const language = isControlled ? languageProp  : languageLocal;
 
-  // ── Modals ────────────────────────────────────────────────────────────────
   const [showUsername, setShowUsername] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [show2FA,      setShow2FA]      = useState(false);
+  const [showDelete,   setShowDelete]   = useState(false);   // NEW
 
   useEffect(() => { setLocalUser(user); }, [user]);
 
-  // ── Load persisted preferences ────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(PREFS_KEY);
         if (raw) {
           const prefs = JSON.parse(raw);
-          // Only load into local state if not controlled by parent
           if (!isControlled) {
             if (prefs.darkMode  !== undefined) setDarkModeLocal(prefs.darkMode);
             if (prefs.language  !== undefined) setLanguageLocal(prefs.language);
@@ -482,7 +613,6 @@ export default function AccountSettingsScreen({
     })();
   }, []);
 
-  // ── Save helper ───────────────────────────────────────────────────────────
   const save = async (updates) => {
     try {
       const raw     = await AsyncStorage.getItem(PREFS_KEY);
@@ -492,21 +622,13 @@ export default function AccountSettingsScreen({
   };
 
   const handleDarkMode = async (v) => {
-    if (isControlled && onDarkModeChange) {
-      onDarkModeChange(v);   // parent manages state + saves
-    } else {
-      setDarkModeLocal(v);
-      await save({ darkMode: v });
-    }
+    if (isControlled && onDarkModeChange) { onDarkModeChange(v); }
+    else { setDarkModeLocal(v); await save({ darkMode: v }); }
   };
 
   const handleLanguage = async (v) => {
-    if (isControlled && onLanguageChange) {
-      onLanguageChange(v);   // parent manages state + saves
-    } else {
-      setLanguageLocal(v);
-      await save({ language: v });
-    }
+    if (isControlled && onLanguageChange) { onLanguageChange(v); }
+    else { setLanguageLocal(v); await save({ language: v }); }
   };
 
   const handleTwoFA = async (v) => { setTwoFA(v); await save({ twoFA: v }); };
@@ -516,7 +638,6 @@ export default function AccountSettingsScreen({
 
   if (!loaded) return null;
 
-  // ── Row component ─────────────────────────────────────────────────────────
   const Row = ({ iconEl, iconBg, label, sub, right, onPress, danger, last }) => (
     <TouchableOpacity
       onPress={onPress} activeOpacity={onPress ? 0.7 : 1}
@@ -556,7 +677,6 @@ export default function AccountSettingsScreen({
             <Text style={{ fontFamily:fonts.black, fontSize:18, color:C.dark }}>Account Settings</Text>
             <Text style={{ fontFamily:fonts.regular, fontSize:12, color:C.muted, marginTop:1 }}>@{localUser?.username}</Text>
           </View>
-          {/* Quick dark mode toggle */}
           <TouchableOpacity
             onPress={() => handleDarkMode(!darkMode)}
             style={{ width:38, height:38, borderRadius:11, backgroundColor:darkMode?C.blue+"30":C.bg, alignItems:"center", justifyContent:"center" }}
@@ -651,7 +771,6 @@ export default function AccountSettingsScreen({
             />
           </View>
 
-          {/* Security info */}
           <View style={{ marginHorizontal:20, marginTop:8, backgroundColor:C.blue+"12", borderRadius:14,
             padding:14, flexDirection:"row", gap:10, borderWidth:1, borderColor:C.blue+"30" }}>
             <Ico.Info sz={15} cl={C.blue}/>
@@ -660,7 +779,7 @@ export default function AccountSettingsScreen({
             </Text>
           </View>
 
-          {/* ── Account Info ── */}
+          {/* ── Account Info — phone row removed ── */}
           <Sec title="Account Info"/>
           <View style={{ marginHorizontal:20, backgroundColor:C.card, borderRadius:18, overflow:"hidden", borderWidth:1, borderColor:C.border }}>
             {[
@@ -670,7 +789,6 @@ export default function AccountSettingsScreen({
               },
               { lbl:"Account Status", val:(localUser?.isActivated||localUser?.isAdmin) ? "Active ✅" : "Not Activated" },
               { lbl:"Email",          val:localUser?.email || "—" },
-              { lbl:"Phone",          val:localUser?.phone || "Not added" },
               { lbl:"Referral Code",  val:`@${localUser?.referralCode || localUser?.username || "—"}` },
               { lbl:"User ID",        val:localUser?.uid ? localUser.uid.slice(0,14)+"..." : "—" },
             ].map((row, i, arr) => (
@@ -696,13 +814,11 @@ export default function AccountSettingsScreen({
                 { text:"Log Out", style:"destructive", onPress:() => { onClose(); onLogout?.(); } },
               ])}
             />
+            {/* NEW: opens designed delete modal instead of plain alert */}
             <Row
               iconEl={<Ico.Trash sz={17} cl={C.red}/>} iconBg="#FFF5F5"
-              label="Delete Account" sub="Permanently delete all your data"
-              danger onPress={() => Alert.alert("Delete Account",
-                "This cannot be undone. Email support@promoearn.com to request deletion.",
-                [{ text:"OK" }]
-              )}
+              label="Delete Account" sub="Permanently erase all your data"
+              danger onPress={() => setShowDelete(true)}
               last
             />
           </View>
@@ -721,6 +837,12 @@ export default function AccountSettingsScreen({
         <ChangePasswordModal visible={showPassword} onClose={() => setShowPassword(false)} C={C}/>
         <LanguageModal visible={showLanguage} onClose={() => setShowLanguage(false)} current={language} onSelect={handleLanguage} C={C}/>
         <TwoFAModal visible={show2FA} onClose={() => setShow2FA(false)} enabled={twoFA} onConfirmToggle={handleTwoFA} C={C}/>
+        <DeleteAccountModal
+          visible={showDelete}
+          onClose={() => setShowDelete(false)}
+          C={C}
+          onDeleted={() => { onLogout?.(); }}
+        />
       </View>
     </Modal>
   );

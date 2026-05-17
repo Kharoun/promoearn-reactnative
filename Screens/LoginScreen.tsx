@@ -5,12 +5,11 @@
 
 import { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
+  View, Text, TextInput, TouchableOpacity, ScrollView, Image,
   KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
 } from "react-native";
 import Svg, { Path, Circle, Rect, Polyline, Line } from "react-native-svg";
 import AuthService from "../services/authService";
-import ForgotPasswordScreen from "./ForgotPasswordScreen";
 import { useGoogleAuth } from "../hooks/useGoogleAuth";
 import { fonts } from "../utils/typography";
 
@@ -163,10 +162,14 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
 
         {/* Header */}
         <View style={st.header}>
-          <View style={st.logoRow}>
-            <View style={st.logoBadge}><Text style={st.logoBadgeText}>PE</Text></View>
-            <Text style={st.logoLabel}>Promo<Text style={{ color:BLUE, fontFamily:fonts.extrabold }}>Earn</Text></Text>
-          </View>
+        <View style={st.logoRow}>
+  <Image
+    source={require("../assets/logo.png")}
+    style={{ width: 40, height: 40 }}
+    resizeMode="contain"
+  />
+  <Text style={st.logoLabel}>Promo<Text style={{ color:BLUE, fontFamily:fonts.extrabold }}>Earn</Text></Text>
+</View>
           <Text style={st.heading}>Welcome back</Text>
           <Text style={st.sub}>Sign in to continue earning from promotional tasks</Text>
         </View>

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { View, Text, Animated, StyleSheet } from "react-native";
 import { fonts } from "../utils/typography";
+import { Image } from "react-native";
 
 type Props = {
   onFinish: () => void;
@@ -44,9 +45,11 @@ export default function SplashScreen({ onFinish }: Props) {
       <View style={styles.bgCircle2} />
 
       <Animated.View style={[styles.logoWrapper, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        <View style={styles.iconBadge}>
-          <Text style={styles.iconText}>PE</Text>
-        </View>
+      <Image
+  source={require("../assets/logo.png")}
+  style={{ width: 84, height: 84, marginBottom: 20 }}
+  resizeMode="contain"
+/>
         <Text style={styles.appName}>
           Promo<Text style={styles.appNameAccent}>Earn</Text>
         </Text>
@@ -85,19 +88,6 @@ const styles = StyleSheet.create({
   logoWrapper: {
     alignItems: "center",
     marginBottom: 16,
-  },
-  iconBadge: {
-    width: 84, height: 84, borderRadius: 24,
-    backgroundColor: "#1A56DB",
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 20,
-    shadowColor: "#1A56DB",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
-  },
-  iconText: {
-    fontFamily: fonts.black,
-    color: "#FFFFFF", fontSize: 28, letterSpacing: 1,
   },
   appName: {
     fontFamily: fonts.extrabold,

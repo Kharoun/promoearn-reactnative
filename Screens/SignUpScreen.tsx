@@ -7,7 +7,7 @@
 import { useState, useRef } from "react";
 import { fonts } from "../utils/typography";
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
+  View, Text, TextInput, TouchableOpacity, ScrollView, Image,
   Animated, KeyboardAvoidingView, Platform, StyleSheet,
   Modal, FlatList, Alert, ActivityIndicator, Dimensions,
 } from "react-native";
@@ -114,12 +114,13 @@ const Icon = {
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 function LogoBadge({ size = "md" }) {
-  const dim = size === "sm" ? 32 : 40;
-  const fs  = size === "sm" ? 11 : 14;
+  const dim = size === "sm" ? 32 : 44;
   return (
-    <View style={{ width: dim, height: dim, borderRadius: dim * 0.3, backgroundColor: BLUE, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontFamily: fonts.black, color: WHITE, fontSize: fs, letterSpacing: 0.5 }}>PE</Text>
-    </View>
+    <Image
+      source={require("../assets/logo.png")}
+      style={{ width: dim, height: dim }}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -355,7 +356,7 @@ function CommonFields({ firstName, setFirstName, lastName, setLastName, dobDay, 
 }
 
 // ─── Landing Page ─────────────────────────────────────────────────────────────
-function LandingPage({ onEmail, onPhone, onGoogle, googleLoading, googleReady, onLogin }) {
+function LandingPage({ onEmail, onGoogle, googleLoading, googleReady, onLogin }) {
   return (
     <View style={{ flex: 1, backgroundColor: WHITE }}>
       {/* Hero */}
@@ -387,20 +388,13 @@ function LandingPage({ onEmail, onPhone, onGoogle, googleLoading, googleReady, o
       {/* Buttons */}
       <View style={{ flex: 1, padding: 24, paddingTop: 28, gap: 12 }}>
         {/* Phone — primary blue */}
-        <TouchableOpacity onPress={onPhone} activeOpacity={0.85}
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-            backgroundColor: BLUE, borderRadius: 16, height: 56,
-            shadowColor: BLUE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 }}>
-          <Icon.Phone size={18} color={WHITE} />
-          <Text style={{ fontSize: 15, fontFamily: fonts.bold, color: WHITE, letterSpacing: 0.2 }}>Continue with Phone Number</Text>
-        </TouchableOpacity>
 
         {/* Email */}
         <TouchableOpacity onPress={onEmail} activeOpacity={0.85}
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-            backgroundColor: "#EEF4FF", borderRadius: 16, height: 56, borderWidth: 1.5, borderColor: "#BFDBFE" }}>
-          <Icon.Mail size={18} color={BLUE} />
-          <Text style={{ fontSize: 15, fontFamily: fonts.semibold, color: BLUE }}>Continue with Email</Text>
+            backgroundColor: "BLUE", borderRadius: 16, height: 56 }}>
+          <Icon.Mail size={18} color={WHITE} />
+          <Text style={{ fontSize: 15, fontFamily: fonts.semibold, color: WHITE }}>Continue with Email</Text>
         </TouchableOpacity>
 
         {/* Google */}
@@ -541,14 +535,6 @@ function FormScreen({ mode, onBack, onSubmit, loading, onLogin, submitError, sub
             <View style={{ flex: 1, height: 1, backgroundColor: "#E2E8F0" }} />
           </View>
 
-          <TouchableOpacity onPress={onBack} activeOpacity={0.85}
-            style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-              backgroundColor: "#F8FAFF", borderRadius: 14, height: 52, borderWidth: 1.5, borderColor: "#E2E8F0" }}>
-            {mode === "email" ? <Icon.Phone size={16} color="#475569" /> : <Icon.Mail size={16} color="#475569" />}
-            <Text style={{ fontSize: 14, fontFamily: fonts.semibold, color: "#475569" }}>
-              {mode === "email" ? "Use Phone Number instead" : "Use Email instead"}
-            </Text>
-          </TouchableOpacity>
 
           <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 20 }}>
             <Text style={{ fontSize: 14, color: "#64748B", fontFamily: fonts.regular }}>Already have an account? </Text>
@@ -575,7 +561,7 @@ export default function SignUpScreen({ onSignUp, onLogin }) {
   const [submitSuccess,setSubmitSuccess]= useState("");
 
   const { signInWithGoogle, loading: googleLoading, ready: googleReady } = useGoogleAuth({
-    onSuccess: () => onSignUp("", ""),
+    onSuccess: () => onSignUp("", "", "google"),  // pass a flag
     onError: (msg) => setSubmitError(msg),
   });
 
@@ -632,7 +618,6 @@ export default function SignUpScreen({ onSignUp, onLogin }) {
     return (
       <LandingPage
         onEmail={() => setView("email")}
-        onPhone={() => setView("phone")}
         onGoogle={signInWithGoogle}
         googleLoading={googleLoading}
         googleReady={googleReady}

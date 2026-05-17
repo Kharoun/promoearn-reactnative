@@ -13,7 +13,7 @@ import {
 import Svg, { Path, Circle, Line, Polyline, Rect } from "react-native-svg";
 import { fonts } from "../utils/typography";
 
-const BASE_URL = "http://localhost:5000/api/v1";
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1"
 
 const C = {
   blue:   "#1A56DB",

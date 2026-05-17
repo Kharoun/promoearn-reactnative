@@ -5,7 +5,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://localhost:5000/api/v1/auth";
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
 
 // ─── Token Management ─────────────────────────────────────────────────────────
 
@@ -166,9 +166,8 @@ const AuthService = {
     });
   },
 
-  saveTokens(accessToken, refreshToken) {
-    localStorage.setItem("@pe_access_token",  accessToken);
-    localStorage.setItem("@pe_refresh_token", refreshToken);
+  async saveTokens(accessToken, refreshToken) {
+    await TokenStore.save(accessToken, refreshToken);
   },
   // ── NEW: Change username (authenticated) ────────────────────────────────────
   async changeUsername(username) {
@@ -214,13 +213,9 @@ const AuthService = {
   },
 
   async logout() {
-    try {
-      await request("/logout", { method: "POST" });
-    } finally {
-      await TokenStore.clear();
-    }
+    await TokenStore.clear();
   },
-
+  
   async isLoggedIn() {
     const token = await TokenStore.getAccess();
     return !!token;

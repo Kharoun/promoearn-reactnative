@@ -1,18 +1,15 @@
 /**
- * VerifyOTPScreen.tsx
- * Shows ONLY the relevant OTP tab based on how user signed up.
- * Props:
- *   onVerified — navigates to app
- *   email      — passed from SignUpScreen (empty string if phone-only signup)
- *   phone      — passed from SignUpScreen (empty string if email-only signup)
- *   mode       — "email" | "phone" — which flow to show first
+ * VerifyOTPScreen.tsx — Fixed:
+ * 1. Error message shown for wrong OTP
+ * 2. Skip button removed (OTP is mandatory)
+ * 3. Correct user redirected to their own app on success
  */
 
 import { useState, useRef, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator,
+  ActivityIndicator, Animated,
 } from "react-native";
 import AuthService from "../services/authService";
 import { fonts } from "../utils/typography";
@@ -30,12 +27,14 @@ const BLUE  = "#1A56DB";
 const DARK  = "#0F172A";
 const WHITE = "#FFFFFF";
 const GREEN = "#10B981";
+const RED   = "#EF4444";
 
 // ─── OTP Box Input ────────────────────────────────────────────────────────────
-function OtpInput({ value, onChange, disabled }: {
+function OtpInput({ value, onChange, disabled, hasError }: {
   value: string;
   onChange: (val: string) => void;
   disabled?: boolean;
+  hasError?: boolean;
 }) {
   const inputRef = useRef<TextInput>(null);
   const digits = value.padEnd(6, " ").split("");
@@ -48,8 +47,9 @@ function OtpInput({ value, onChange, disabled }: {
             otp.box,
             value.length === i && otp.boxActive,
             value.length > i && otp.boxFilled,
+            hasError && otp.boxError,  // ← red border on wrong OTP
           ]}>
-            <Text style={otp.digit}>{d.trim()}</Text>
+            <Text style={[otp.digit, hasError && { color: RED }]}>{d.trim()}</Text>
           </View>
         ))}
       </View>
@@ -68,11 +68,29 @@ function OtpInput({ value, onChange, disabled }: {
 }
 
 const otp = StyleSheet.create({
-  box: { width: 48, height: 58, borderRadius: 14, borderWidth: 2, borderColor: "#E2E8F0", backgroundColor: "#F8FAFF", alignItems: "center", justifyContent: "center" },
+  box:       { width: 48, height: 58, borderRadius: 14, borderWidth: 2, borderColor: "#E2E8F0", backgroundColor: "#F8FAFF", alignItems: "center", justifyContent: "center" },
   boxActive: { borderColor: BLUE, backgroundColor: "#EEF4FF" },
   boxFilled: { borderColor: BLUE, backgroundColor: "#EEF4FF" },
-  digit: { fontFamily: fonts.extrabold, fontSize: 24, color: DARK },
+  boxError:  { borderColor: RED, backgroundColor: "#FFF5F5" },
+  digit:     { fontFamily: fonts.extrabold, fontSize: 24, color: DARK },
 });
+
+// ─── Shake Animation ──────────────────────────────────────────────────────────
+function useShake() {
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8,   duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0,   duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
+  return { shakeAnim, shake };
+}
 
 // ─── Countdown ────────────────────────────────────────────────────────────────
 function useCountdown(seconds: number) {
@@ -90,19 +108,20 @@ function useCountdown(seconds: number) {
 
 // ─── Single OTP Panel ─────────────────────────────────────────────────────────
 function OtpPanel({
-  type, target, onVerified, onSkip, showSkip,
+  type, target, onVerified,
 }: {
   type: Mode;
   target: string;
   onVerified: () => void;
-  onSkip?: () => void;
-  showSkip?: boolean;
 }) {
-  const [code, setCode]         = useState("");
-  const [verified, setVerified] = useState(false);
-  const [loading, setLoading]   = useState(false);
+  const [code,      setCode]      = useState("");
+  const [verified,  setVerified]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
   const [resending, setResending] = useState(false);
+  const [error,     setError]     = useState("");   // ← error message state
+  const [attempts,  setAttempts]  = useState(0);   // ← track wrong attempts
   const countdown = useCountdown(600);
+  const { shakeAnim, shake } = useShake();
 
   const masked = type === "email"
     ? (target ? `${target[0]}***@${target.split("@")[1]}` : "")
@@ -110,6 +129,7 @@ function OtpPanel({
 
   const handleVerify = async () => {
     if (code.length < 6) return;
+    setError(""); // clear previous error
     try {
       setLoading(true);
       const result = type === "email"
@@ -118,30 +138,52 @@ function OtpPanel({
 
       if (result.success) {
         setVerified(true);
+        setError("");
       } else {
-        setCode("");
-        // Show inline error instead of Alert (Alert broken on web)
+        // ── Wrong OTP — show error, shake, clear code ──
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+
+        const errorMsg = newAttempts >= 3
+          ? `Incorrect code. ${newAttempts} failed attempts. Please request a new code.`
+          : result.message || "Incorrect code. Please check and try again.";
+
+        setError(errorMsg);
+        shake();                      // ← shake the boxes
+        setCode("");                  // ← clear the input so user can retry
       }
     } catch {
+      setError("Something went wrong. Please check your connection and try again.");
+      shake();
       setCode("");
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto-verify when 6 digits entered
+  useEffect(() => {
+    if (code.length === 6 && !loading) {
+      handleVerify();
+    }
+  }, [code]);
+
   const handleResend = async () => {
     try {
       setResending(true);
+      setError("");
+      setAttempts(0);
       await AuthService.resendOtp(target, type);
       setCode("");
       countdown.reset();
     } catch {
-      // silent
+      setError("Failed to resend code. Please try again.");
     } finally {
       setResending(false);
     }
   };
 
+  // ── Success state ──────────────────────────────────────────────────────────
   if (verified) {
     return (
       <View style={p.verifiedBox}>
@@ -149,7 +191,9 @@ function OtpPanel({
         <Text style={p.verifiedTitle}>
           {type === "email" ? "Email Verified!" : "Phone Verified!"}
         </Text>
-        <Text style={p.verifiedSub}>Your {type} has been successfully verified.</Text>
+        <Text style={p.verifiedSub}>
+          Your {type} has been successfully verified.
+        </Text>
         <TouchableOpacity style={p.continueBtn} onPress={onVerified} activeOpacity={0.85}>
           <Text style={p.continueBtnText}>Continue to App 🚀</Text>
         </TouchableOpacity>
@@ -168,17 +212,37 @@ function OtpPanel({
         </View>
       </View>
 
-      {/* OTP boxes */}
-      <OtpInput value={code} onChange={setCode} disabled={loading} />
+      {/* OTP boxes with shake animation */}
+      <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+        <OtpInput
+          value={code}
+          onChange={(val) => {
+            setCode(val);
+            if (error) setError(""); // clear error when user starts typing again
+          }}
+          disabled={loading}
+          hasError={!!error}
+        />
+      </Animated.View>
+
+      {/* ── Error message ── */}
+      {error ? (
+        <View style={p.errorBox}>
+          <Text style={p.errorIcon}>⚠️</Text>
+          <Text style={p.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       {/* Timer */}
-      <View style={{ alignItems: "center", marginTop: 12, marginBottom: 4 }}>
-        <Text style={{ fontSize: 12, color: "#94A3B8" }}>
-          {countdown.timeLeft > 0 ? `Code expires in ${countdown.label}` : "Code expired"}
+      <View style={{ alignItems: "center", marginTop: error ? 8 : 12, marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, color: "#94A3B8", fontFamily: fonts.regular }}>
+          {countdown.timeLeft > 0
+            ? `Code expires in ${countdown.label}`
+            : "Code expired — please request a new one"}
         </Text>
       </View>
 
-      {/* Verify btn */}
+      {/* Verify button */}
       <TouchableOpacity
         style={[p.verifyBtn, (code.length < 6 || loading) && p.verifyBtnDisabled]}
         onPress={handleVerify}
@@ -187,7 +251,9 @@ function OtpPanel({
       >
         {loading
           ? <ActivityIndicator color="#fff" />
-          : <Text style={p.verifyBtnText}>Verify {type === "email" ? "Email" : "Phone"} ✓</Text>
+          : <Text style={p.verifyBtnText}>
+              Verify {type === "email" ? "Email" : "Phone"} ✓
+            </Text>
         }
       </TouchableOpacity>
 
@@ -200,109 +266,115 @@ function OtpPanel({
       >
         {resending
           ? <ActivityIndicator size="small" color={BLUE} />
-          : <Text style={{ fontSize: 14, color: countdown.timeLeft > 540 ? "#CBD5E1" : BLUE, fontWeight: "600" }}>
-              {countdown.timeLeft > 540 ? `Resend in ${countdown.timeLeft - 540}s` : "Resend code"}
+          : <Text style={{
+              fontSize: 14,
+              fontFamily: fonts.semibold,
+              color: countdown.timeLeft > 540 ? "#CBD5E1" : BLUE,
+            }}>
+              {countdown.timeLeft > 540
+                ? `Resend available in ${countdown.timeLeft - 540}s`
+                : "Didn't receive a code? Resend"}
             </Text>
         }
       </TouchableOpacity>
 
-      {/* Skip */}
-      {showSkip && (
-        <TouchableOpacity onPress={onSkip} activeOpacity={0.7} style={{ alignItems: "center", marginTop: 12 }}>
-          <Text style={{ fontSize: 13, color: "#94A3B8" }}>Skip for now</Text>
-        </TouchableOpacity>
-      )}
+      {/* ── Skip button REMOVED — verification is mandatory ── */}
     </View>
   );
 }
 
 const p = StyleSheet.create({
-  infoBox: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F8FAFF", borderRadius: 14, padding: 16, marginBottom: 8 },
-  infoIcon: { fontSize: 28 },
-  infoTitle: { fontSize: 12, color: "#94A3B8", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-  infoTarget: { fontSize: 15, fontWeight: "700", color: DARK, marginTop: 2 },
-  verifyBtn: { backgroundColor: BLUE, borderRadius: 14, height: 54, alignItems: "center", justifyContent: "center", marginTop: 20, shadowColor: BLUE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 8 },
-  verifyBtnDisabled: { backgroundColor: "#93AAED", shadowOpacity: 0 },
-  verifyBtnText: { color: WHITE, fontSize: 16, fontWeight: "700", letterSpacing: 0.4 },
-  verifiedBox: { alignItems: "center", paddingVertical: 16 },
-  verifiedIcon: { fontSize: 52, marginBottom: 12 },
-  verifiedTitle: { fontSize: 22, fontWeight: "800", color: GREEN, marginBottom: 8 },
-  verifiedSub: { fontSize: 14, color: "#64748B", textAlign: "center", marginBottom: 24 },
-  continueBtn: { backgroundColor: GREEN, borderRadius: 14, height: 54, width: "100%", alignItems: "center", justifyContent: "center", shadowColor: GREEN, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
-  continueBtnText: { color: WHITE, fontSize: 16, fontWeight: "700" },
+  infoBox:          { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F8FAFF", borderRadius: 14, padding: 16, marginBottom: 8 },
+  infoIcon:         { fontSize: 28 },
+  infoTitle:        { fontSize: 12, color: "#94A3B8", fontFamily: fonts.semibold, textTransform: "uppercase", letterSpacing: 0.5 },
+  infoTarget:       { fontSize: 15, fontFamily: fonts.bold, color: DARK, marginTop: 2 },
+
+  // ── Error styles ──
+  errorBox:         { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#FFF5F5", borderRadius: 12, padding: 12, marginTop: 10, borderWidth: 1, borderColor: "#FECACA" },
+  errorIcon:        { fontSize: 14 },
+  errorText:        { flex: 1, fontSize: 13, fontFamily: fonts.medium, color: RED, lineHeight: 18 },
+
+  verifyBtn:        { backgroundColor: BLUE, borderRadius: 14, height: 54, alignItems: "center", justifyContent: "center", marginTop: 20, shadowColor: BLUE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 8 },
+  verifyBtnDisabled:{ backgroundColor: "#93AAED", shadowOpacity: 0 },
+  verifyBtnText:    { color: WHITE, fontSize: 16, fontFamily: fonts.bold, letterSpacing: 0.4 },
+
+  verifiedBox:      { alignItems: "center", paddingVertical: 16 },
+  verifiedIcon:     { fontSize: 52, marginBottom: 12 },
+  verifiedTitle:    { fontSize: 22, fontFamily: fonts.black, color: GREEN, marginBottom: 8 },
+  verifiedSub:      { fontSize: 14, fontFamily: fonts.regular, color: "#64748B", textAlign: "center", marginBottom: 24 },
+  continueBtn:      { backgroundColor: GREEN, borderRadius: 14, height: 54, width: "100%", alignItems: "center", justifyContent: "center", shadowColor: GREEN, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+  continueBtnText:  { color: WHITE, fontSize: 16, fontFamily: fonts.bold },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function VerifyOTPScreen({ onVerified, email, phone, mode }: Props) {
-  // If user signed up with email, show email verification only
-  // If user signed up with phone, show phone verification only
-  // Both can be present if backend requires both
   const showEmail = !!email && !email.startsWith("ph_");
   const showPhone = !!phone;
 
-  const title = mode === "email"
-    ? "Check your email 📬"
-    : "Check your phone 📱";
-
+  const title = mode === "email" ? "Check your email 📬" : "Check your phone 📱";
   const subtitle = mode === "email"
     ? "We sent a 6-digit code to your email address. Enter it below to verify your account."
     : "We sent a 6-digit code to your phone via SMS. Enter it below to verify your account.";
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ScrollView style={{ flex: 1, backgroundColor: "#F8FAFF" }}
+      <ScrollView
+        style={{ flex: 1, backgroundColor: "#F8FAFF" }}
         contentContainerStyle={{ paddingBottom: 48 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top blue bar */}
         <View style={{ height: 4, backgroundColor: BLUE }} />
 
         {/* Header */}
         <View style={{ paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 }}>
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 28, gap: 10 }}>
             <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: WHITE, fontSize: 13, fontWeight: "800" }}>PE</Text>
+              <Text style={{ color: WHITE, fontSize: 13, fontFamily: fonts.black }}>PE</Text>
             </View>
-            <Text style={{ fontSize: 20, fontWeight: "800", color: DARK, letterSpacing: -0.5 }}>
+            <Text style={{ fontSize: 20, fontFamily: fonts.extrabold, color: DARK, letterSpacing: -0.5 }}>
               Promo<Text style={{ color: BLUE }}>Earn</Text>
             </Text>
           </View>
-          <Text style={{ fontSize: 26, fontWeight: "800", color: DARK, letterSpacing: -0.5, marginBottom: 8 }}>
+          <Text style={{ fontSize: 26, fontFamily: fonts.black, color: DARK, letterSpacing: -0.5, marginBottom: 8 }}>
             {title}
           </Text>
-          <Text style={{ fontSize: 14, color: "#64748B", lineHeight: 22 }}>{subtitle}</Text>
+          <Text style={{ fontSize: 14, fontFamily: fonts.regular, color: "#64748B", lineHeight: 22 }}>
+            {subtitle}
+          </Text>
+
+          {/* ── Mandatory notice — replaces the skip button ── */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FFF7ED", borderRadius: 12, padding: 12, marginTop: 16, borderWidth: 1, borderColor: "#FED7AA" }}>
+            <Text style={{ fontSize: 14 }}>🔒</Text>
+            <Text style={{ fontSize: 12, fontFamily: fonts.medium, color: "#9A3412", flex: 1, lineHeight: 17 }}>
+              Verification is required to protect your account and access your earnings.
+            </Text>
+          </View>
         </View>
 
         {/* Card */}
         <View style={{ backgroundColor: WHITE, marginHorizontal: 16, borderRadius: 24, padding: 24, shadowColor: BLUE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 6 }}>
 
-          {/* Email only signup → show email OTP */}
           {mode === "email" && showEmail && (
             <OtpPanel
               type="email"
               target={email}
               onVerified={onVerified}
-              showSkip={true}
-              onSkip={onVerified}
             />
           )}
 
-          {/* Phone only signup → show phone OTP */}
           {mode === "phone" && showPhone && (
             <OtpPanel
               type="phone"
               target={phone}
               onVerified={onVerified}
-              showSkip={true}
-              onSkip={onVerified}
             />
           )}
 
-          {/* Fallback if something went wrong */}
+          {/* Fallback */}
           {!showEmail && !showPhone && (
             <View style={{ alignItems: "center", paddingVertical: 24 }}>
-              <Text style={{ fontSize: 16, color: "#64748B", textAlign: "center", marginBottom: 20 }}>
+              <Text style={{ fontSize: 16, fontFamily: fonts.regular, color: "#64748B", textAlign: "center", marginBottom: 20 }}>
                 Your account has been created!
               </Text>
               <TouchableOpacity style={p.continueBtn} onPress={onVerified} activeOpacity={0.85}>
@@ -312,7 +384,7 @@ export default function VerifyOTPScreen({ onVerified, email, phone, mode }: Prop
           )}
         </View>
 
-        <Text style={{ textAlign: "center", fontSize: 12, color: "#CBD5E1", marginTop: 24, paddingHorizontal: 40, lineHeight: 18 }}>
+        <Text style={{ textAlign: "center", fontSize: 12, fontFamily: fonts.regular, color: "#CBD5E1", marginTop: 24, paddingHorizontal: 40, lineHeight: 18 }}>
           {mode === "email"
             ? "Check your spam folder if you don't see the email 📬"
             : "SMS may take a few seconds to arrive 📱"}

@@ -2,22 +2,35 @@
   "expo": {
     "name": "PromoEarn",
     "slug": "promoearn",
-    "ios": {
-      "supportsTablet": true
-    },
+    "jsEngine": "hermes",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "promoearn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.KhalidHaroun.promoearn",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "PromoEarn needs access to select media for your campaign."
+      }
+    },
     "android": {
+      "package": "com.KhalidHaroun.promoearn",
+      "jsEngine": "hermes",
+      "permissions": [
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "CAMERA",
+        "INTERNET",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png",
-        "package": "com.KhalidHaroun.promoearn"
+        "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -44,8 +57,20 @@
       "expo-font"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "86a9222d-9c35-405f-b713-fa2531ce238b"
+      }
+    },
+    "owner": "jst_haxl",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/86a9222d-9c35-405f-b713-fa2531ce238b"
     }
   }
 }

@@ -27,7 +27,7 @@ const C = {
 };
 
 const APP_VERSION = "1.0.0";
-const SUPPORT_EMAIL = "support@promoearn.com";
+const SUPPORT_EMAIL = "Contact.promoearn@gmail.com";
 const TERMS_URL = "https://promoearn.com/terms";
 const PRIVACY_URL = "https://promoearn.com/privacy";
 
@@ -55,7 +55,7 @@ const FAQS = [
     items: [
       { q: "How do I activate my account?", a: "Pay a one-time $3.00 registration fee via Paystack. After payment, your account is instantly activated and you receive a $0.33 welcome bonus." },
       { q: "What is the welcome bonus?", a: "All new users who activate their account receive a $0.33 welcome bonus automatically added to their balance." },
-      { q: "How do I refer friends?", a: "Share your referral code (your username with @) with friends. When they sign up using your code and activate their account, you earn $1.00 instantly." },
+      { q: "How do I refer friends?", a: "Share your referral code (your username with @) with friends. When they sign up using your code and activate their account, you earn $1.33 instantly." },
     ],
   },
   {
@@ -388,9 +388,9 @@ function TermsPrivacyScreen({ onBack }) {
               { title: "How We Use Your Data", body: "Your data is used to operate the platform, process payments, prevent fraud, and improve our services. We never sell your personal data to third parties." },
               { title: "Data Security", body: "All data is encrypted in transit and at rest. Passwords are hashed and never stored in plain text. We use Firebase with enterprise-grade security." },
               { title: "Cookies & Analytics", body: "We use minimal analytics to understand how the app is used and improve the experience. No advertising cookies or third-party tracking are used." },
-              { title: "Your Rights", body: "You have the right to access, correct, or delete your personal data. Contact support@promoearn.com to exercise these rights." },
+              { title: "Your Rights", body: "You have the right to access, correct, or delete your personal data. Contact contact.promoearn@gmail.com to exercise these rights." },
               { title: "Data Retention", body: "We retain your data for as long as your account is active. Upon account deletion, your personal data is removed within 30 days." },
-              { title: "Contact", body: "For privacy concerns, email us at support@promoearn.com. We will respond within 5 business days." },
+              { title: "Contact", body: "For privacy concerns, email us at contact.promoearn@gmail.com.com. We will respond within 5 business days." },
             ].map((section, i) => (
               <View key={i} style={{ marginBottom: 20 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: C.dark, marginBottom: 8 }}>{section.title}</Text>

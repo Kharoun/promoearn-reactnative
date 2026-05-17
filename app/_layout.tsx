@@ -9,16 +9,17 @@ import {
   Poppins_800ExtraBold,
   Poppins_900Black,
 } from "@expo-google-fonts/poppins";
-
-import { AppProvider } from "../context/AppContext";   // ← ADD THIS
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import AuthService from "../services/authService";
 
 import SplashScreen    from "../Screens/SplashScreen";
 import LoginScreen     from "../Screens/LoginScreen";
 import SignUpScreen    from "../Screens/SignUpScreen";
 import VerifyOTPScreen from "../Screens/VerifyOTPScreen";
+import ForgotPasswordScreen from "../Screens/ForgotPasswordScreen";
 import Mainapp         from "../Screens/Mainapp";
 
-type Screen = "splash" | "signup" | "login" | "verify" | "app";
+type Screen = "splash" | "signup" | "login" | "verify" | "app" | "forgot";
 
 export default function RootLayout() {
   const [screen,      setScreen]      = useState<Screen>("splash");
@@ -45,7 +46,10 @@ export default function RootLayout() {
 
   const renderScreen = () => {
     if (screen === "splash") {
-      return <SplashScreen onFinish={() => setScreen("signup")} />;
+      return <SplashScreen onFinish={async () => {
+        const loggedIn = await AuthService.isLoggedIn();
+        setScreen(loggedIn ? "app" : "login");
+      }} />;
     }
 
     if (screen === "signup") {
@@ -62,16 +66,24 @@ export default function RootLayout() {
         />
       );
     }
-
     if (screen === "login") {
       return (
         <LoginScreen
           onLogin={() => setScreen("app")}
           onSignUp={() => setScreen("signup")}
+          onForgot={() => setScreen("forgot")}
         />
       );
     }
-
+    
+    if (screen === "forgot") {
+      return (
+        <ForgotPasswordScreen
+          onBack={() => setScreen("login")}
+          onSuccess={() => setScreen("login")}
+        />
+      );
+    }
     if (screen === "verify") {
       return (
         <VerifyOTPScreen
@@ -86,7 +98,11 @@ export default function RootLayout() {
     if (screen === "app") {
       return (
         <Mainapp
-          onLogout={() => setScreen("signup")}
+          onLogout={async () => {
+            await AuthService.logout();
+            await AsyncStorage.removeItem("pe_cached_user");
+            setScreen("login");
+          }}
         />
       );
     }
@@ -94,9 +110,6 @@ export default function RootLayout() {
     return null;
   };
 
-  return (
-    <AppProvider>
-      {renderScreen()}
-    </AppProvider>
-  );
-}5
+  return renderScreen();
+}
+ 

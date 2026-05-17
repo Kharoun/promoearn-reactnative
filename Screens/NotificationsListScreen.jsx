@@ -6,16 +6,9 @@ import {
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
 
-// STEP 1: Import useApp from your context file
-import { useApp } from "../context/AppContext";
 
-const BASE_URL = "http://localhost:5000/api/v1";
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1";
 
-// STEP 2: Remove the hardcoded C object — it now comes from context
-// DELETE THIS:
-// const C = {
-//   blue:"#1A56DB", dark:"#0F172A", white:"#FFFFFF", ...
-// };
 
 const api = async (endpoint, options = {}) => {
   // STEP 3: await the token — AuthService.getToken() is async
@@ -36,9 +29,7 @@ const TYPE_ICON = {
   default:        { emoji:"🔔", bg:"#F8FAFF", color:"#64748B" },
 };
 
-export default function NotificationsListScreen({ visible, onClose, onUnreadChange }) {
-  // STEP 4: Pull C and darkMode from context at the top of your component
-  const { C, darkMode } = useApp();
+export default function NotificationsListScreen({ visible, onClose, onUnreadChange, C, darkMode }) {
 
   const [notifications, setNotifications] = useState([]);
   const [loading,       setLoading]       = useState(true);
@@ -102,13 +93,13 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
     <Modal visible={visible} animationType="slide" transparent>
       <View style={st.overlay}>
         {/* STEP 5: Replace hardcoded color values with C.whatever */}
-        <View style={[st.sheet, { backgroundColor: C.cardBg }]}>
+        <View style={[st.sheet, { backgroundColor: C.card }]}>
           <View style={[st.handle, { backgroundColor: C.border }]}/>
           <View style={[st.header, { borderBottomColor: C.border }]}>
             <View>
-              <Text style={[st.title, { color: C.textPrimary }]}>Notifications</Text>
+              <Text style={[st.title, { color: C.dark }]}>Notifications</Text>
               {unreadCount > 0 && (
-                <Text style={{ fontFamily:fonts.regular, fontSize:12, color:C.textMuted, marginTop:2 }}>
+                <Text style={{ fontFamily:fonts.regular, fontSize:12, color:C.muted, marginTop:2 }}>
                   {unreadCount} unread
                 </Text>
               )}
@@ -120,7 +111,7 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={onClose} style={[st.closeBtn, { backgroundColor: C.bg }]}>
-                <Text style={{ fontSize:18, color:C.textMuted }}>✕</Text>
+                <Text style={{ fontSize:18, color:C.muted }}>✕</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -136,14 +127,14 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
             }
           >
             {loading ? (
-              <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.textMuted, textAlign:"center", paddingVertical:40 }}>
+              <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, textAlign:"center", paddingVertical:40 }}>
                 Loading...
               </Text>
             ) : notifications.length === 0 ? (
               <View style={{ alignItems:"center", paddingVertical:60 }}>
                 <Text style={{ fontSize:48, marginBottom:16 }}>🔔</Text>
-                <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.textPrimary }}>No notifications yet</Text>
-                <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.textMuted, marginTop:4, textAlign:"center", paddingHorizontal:32 }}>
+                <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.dark }}>No notifications yet</Text>
+                <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, marginTop:4, textAlign:"center", paddingHorizontal:32 }}>
                   You'll be notified about tasks, referrals and payments here.
                 </Text>
               </View>
@@ -167,14 +158,14 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
                     </View>
                     <View style={{ flex:1 }}>
                       <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"flex-start" }}>
-                        <Text style={{ fontFamily:notif.read ? fonts.medium : fonts.bold, fontSize:14, color:C.textPrimary, flex:1, marginRight:8 }}>
+                        <Text style={{ fontFamily:notif.read ? fonts.medium : fonts.bold, fontSize:14, color:C.dark, flex:1, marginRight:8 }}>
                           {notif.title}
                         </Text>
-                        <Text style={{ fontFamily:fonts.regular, fontSize:11, color:C.textMuted, flexShrink:0 }}>
+                        <Text style={{ fontFamily:fonts.regular, fontSize:11, color:C.muted, flexShrink:0 }}>
                           {formatTime(notif.createdAt)}
                         </Text>
                       </View>
-                      <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.textMuted, marginTop:3, lineHeight:19 }}>
+                      <Text style={{ fontFamily:fonts.regular, fontSize:13, color:C.muted, marginTop:3, lineHeight:19 }}>
                         {notif.body}
                       </Text>
                     </View>

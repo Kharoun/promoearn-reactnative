@@ -5,12 +5,7 @@ import {
 } from "react-native";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
-
-const BASE_URL = "http://localhost:5000/api/v1";
-const C = {
-  blue:"#1A56DB", dark:"#0F172A", white:"#FFFFFF",
-  light:"#F8FAFF", muted:"#64748B", border:"#E2E8F0",
-};
+const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
 
 const api = async (endpoint, options = {}) => {
   const token = AuthService.getToken();
@@ -31,7 +26,9 @@ const DEFAULT_PREFS = {
   appUpdates:     false,
 };
 
-export default function NotificationsScreen({ visible, onClose, user }) {
+export default function NotificationsScreen({ visible, onClose, user, C: CProp }) {
+  const C = CProp || { blue:"#1A56DB", dark:"#0F172A", white:"#FFFFFF", light:"#F8FAFF", muted:"#64748B", border:"#E2E8F0" };
+  const st = makeStyles(C);
   const [settings, setSettings] = useState(DEFAULT_PREFS);
   const [saving,   setSaving]   = useState(false);
 
@@ -104,7 +101,7 @@ export default function NotificationsScreen({ visible, onClose, user }) {
                 <Text style={{ fontFamily:fonts.bold, fontSize:13, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:12 }}>
                   {group.title}
                 </Text>
-                <View style={{ backgroundColor:C.white, borderRadius:16, overflow:"hidden", borderWidth:1, borderColor:C.border }}>
+                <View style={{ backgroundColor:C.card||C.white||"#FFF", borderRadius:16, overflow:"hidden", borderWidth:1, borderColor:C.border }}>
                   {group.items.map((item, ii) => (
                     <View key={item.key} style={[{ flexDirection:"row", alignItems:"center", paddingHorizontal:16, paddingVertical:14, gap:12 }, ii < group.items.length-1 && { borderBottomWidth:1, borderBottomColor:C.border }]}>
                       <View style={{ flex:1 }}>
@@ -135,11 +132,11 @@ export default function NotificationsScreen({ visible, onClose, user }) {
   );
 }
 
-const st = StyleSheet.create({
+const makeStyles = (C) => ({
   overlay:  { flex:1, backgroundColor:"rgba(0,0,0,0.5)", justifyContent:"flex-end" },
-  sheet:    { backgroundColor:"#F8FAFF", borderTopLeftRadius:28, borderTopRightRadius:28, maxHeight:"90%", paddingBottom:Platform.OS==="ios"?44:28 },
-  handle:   { width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12, marginBottom:4 },
-  header:   { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0", backgroundColor:"#FFFFFF" },
-  title:    { fontFamily:fonts.black, fontSize:18, color:"#0F172A" },
-  closeBtn: { width:34, height:34, borderRadius:17, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" },
+  sheet:    { backgroundColor:C.bg||C.card||"#F8FAFF", borderTopLeftRadius:28, borderTopRightRadius:28, maxHeight:"90%", paddingBottom:Platform.OS==="ios"?44:28 },
+  handle:   { width:40, height:4, backgroundColor:C.border, borderRadius:2, alignSelf:"center", marginTop:12, marginBottom:4 },
+  header:   { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:C.border, backgroundColor:C.card||"#FFF" },
+  title:    { fontFamily:fonts.black, fontSize:18, color:C.dark },
+  closeBtn: { width:34, height:34, borderRadius:17, backgroundColor:C.bg||"#F8FAFF", alignItems:"center", justifyContent:"center" },
 });
