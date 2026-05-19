@@ -58,7 +58,7 @@ const TRANSLATIONS = {
     withdraw: "Withdraw", history: "History", tasksDone: "Tasks Done",
     referrals: "Referrals", rank: "Rank", latestTasks: "Latest Tasks",
     topEarners: "Top Earners", activateAccount: "Activate Your Account",
-    activateSubtitle: "One-time $3.00",
+    activateSubtitle: "One-time $3.00 · Unlock 5 earning tasks instantly",
     // PromoSpace
     earn: "Earn", advertise: "Advertise", marketplace: "Marketplace",
     todayPotential: "Today's Potential", earnUpTo: "Earn up to",
@@ -66,22 +66,22 @@ const TRANSLATIONS = {
     noTasksFound: "No tasks found", checkBackLater: "Check back later for new tasks",
     unlockAllTasks: "Unlock All Tasks",
     unlockSubtitle: "Activate your account with a one-time $3.00 fee to access all earning tasks.",
-    activate: "Activate · $3.00",
+    activate: "Activate · $3.00", oneTimeFee: "One-time · 5 tasks unlocked instantly",
     start: "Start", completed: "Completed",
     // Wallet
     totalBalance: "Total Balance", withdrawn: "Withdrawn",
     transactionHistory: "Transaction History", noTransactions: "No transactions yet",
-    withdrawFunds: "Withdraw Funds", allAmountsUSD: "All amounts in USD · Min. $3.34",
+    withdrawFunds: "Withdraw Funds", allAmountsUSD: "All amounts in USD · Min. $3.50",
     amount: "Amount ($)", accountNumber: "Account Number", bankName: "Bank Name",
     requestWithdrawal: "Request Withdrawal", submitting: "Submitting...",
     howWithdrawalsWork: "How Withdrawals Work", feesInfo: "Fees, conversion rate & payout info",
     withdrawalFeeNotice: "Withdrawal Fee Notice",
-    withdrawalFeeDetail: "A flat $0.067 processing fee is deducted from every withdrawal.",
+    withdrawalFeeDetail: "A flat $0.07 processing fee is deducted from every withdrawal.",
     dollarConversion: "Dollar Conversion Rate",
     dollarConversionDetail: "All balances shown in US Dollars. When we send your payout to a Local bank account, we convert at",
     stepByStep: "Step-by-Step Process",
-    step1Title: "Request Withdrawal", step1Desc: "Enter your amount (min $3.34), bank name and account number.",
-    step2Title: "$0.067 Fee Deducted", step2Desc: "A $0.067 processing fee is taken from your requested amount.",
+    step1Title: "Request Withdrawal", step1Desc: "Enter your amount (min $3.50), bank name and account number.",
+    step2Title: "$0.07 Fee Deducted", step2Desc: "A $0.07 processing fee is taken from your requested amount.",
     step3Title: "We Convert to Naira", step3Desc: "The remaining balance is converted at $1 = ₦1,500.",
     step4Title: "Payout Within 24hrs", step4Desc: "Funds are sent directly to your Local bank account account.",
     youWithdraw: "You withdraw", processingFee: "Processing fee",
@@ -117,7 +117,7 @@ const TRANSLATIONS = {
     sending: "Sending…", thanksFeedback: "Thanks for your feedback!",
     sendAnother: "Send Another",
     needSupport: "Need direct support?",
-    supportEmail: "Email us at support@promoearn.com · We reply within 24hrs",
+    supportEmail: "Email us at contact.promoearn@gmail.com · We reply within 24hrs",
     // Logout
     logOutQuestion: "Log Out?", logOutDesc: "You'll be signed out of your PromoEarn account. Your balance and data are safe.",
     yesLogOut: "Yes, Log Out", cancelStayIn: "Cancel, Stay In",
@@ -142,17 +142,17 @@ const TRANSLATIONS = {
     start: "Bẹrẹ", completed: "Ti Pari",
     totalBalance: "Apapọ Owo", withdrawn: "Ti Yọ",
     transactionHistory: "Itan Iṣowo", noTransactions: "Ko si iṣowo sibẹ",
-    withdrawFunds: "Yọ Owo", allAmountsUSD: "Gbogbo owo ni USD · O kere $3.34",
+    withdrawFunds: "Yọ Owo", allAmountsUSD: "Gbogbo owo ni USD · O kere $3.50",
     amount: "Iye ($)", accountNumber: "Nọmba Akọọlẹ", bankName: "Orukọ Banki",
     requestWithdrawal: "Beere Yiyọ Owo", submitting: "Firanṣẹ...",
     howWithdrawalsWork: "Bii Yiyọ Owo Ṣe N Ṣiṣẹ", feesInfo: "Awọn owo, oṣuwọn, ati alaye sisanwo",
     withdrawalFeeNotice: "Akiyesi Owo Yiyọ",
-    withdrawalFeeDetail: "Owo sisẹ $0.067 ni a yọ kuro ninu gbogbo yiyọ.",
+    withdrawalFeeDetail: "Owo sisẹ $0.07 ni a yọ kuro ninu gbogbo yiyọ.",
     dollarConversion: "Oṣuwọn Iyipada Dọla",
     dollarConversionDetail: "Gbogbo iye ni a fihan ni Dọla Amẹrika. A ṣe iyipada si",
     stepByStep: "Ilana Igbesẹ-Nipasẹ-Igbesẹ",
-    step1Title: "Beere Yiyọ Owo", step1Desc: "Tẹ iye rẹ (o kere $3.34), orukọ banki ati nọmba akọọlẹ.",
-    step2Title: "Owo $0.067 Yọ", step2Desc: "Owo sisẹ $0.067 ni a gba lati iye ti o beere.",
+    step1Title: "Beere Yiyọ Owo", step1Desc: "Tẹ iye rẹ (o kere $3.50), orukọ banki ati nọmba akọọlẹ.",
+    step2Title: "Owo $0.07 Yọ", step2Desc: "Owo sisẹ $0.07 ni a gba lati iye ti o beere.",
     step3Title: "A Ṣe Iyipada si Naira", step3Desc: "Iyokù ni a ṣe iyipada ni $1 = ₦1,500.",
     step4Title: "Sisanwo Laarin 24hrs", step4Desc: "Owo ranṣẹ si akọọlẹ banki Naijiriya rẹ taara.",
     youWithdraw: "O Yọ", processingFee: "Owo Sisẹ",
@@ -182,7 +182,7 @@ const TRANSLATIONS = {
     sending: "Firanṣẹ…", thanksFeedback: "E dupe fun esi rẹ!",
     sendAnother: "Firanṣẹ Omiran",
     needSupport: "Nilo atilẹyin taara?",
-    supportEmail: "Imeeli wa ni support@promoearn.com · A dahun laarin wakati 24",
+    supportEmail: "Imeeli wa ni contact.promoearn@gmail.com · A dahun laarin wakati 24",
     logOutQuestion: "Jade?", logOutDesc: "Iwọ yoo jade kuro ninu akọọlẹ PromoEarn rẹ. Iye owo ati data rẹ wa ni aabo.",
     yesLogOut: "Bẹẹni, Jade", cancelStayIn: "Fagilee, Duro",
   },
@@ -206,17 +206,17 @@ const TRANSLATIONS = {
     start: "Fara", completed: "An Kammala",
     totalBalance: "Jimlar Kudi", withdrawn: "An Cire",
     transactionHistory: "Tarihin Ma'amala", noTransactions: "Babu ma'amala tukuna",
-    withdrawFunds: "Cire Kudi", allAmountsUSD: "Duk adadi a USD · Mafi ƙaranci $3.34",
+    withdrawFunds: "Cire Kudi", allAmountsUSD: "Duk adadi a USD · Mafi ƙaranci $3.50",
     amount: "Adadi ($)", accountNumber: "Lambar Asusun", bankName: "Sunan Banki",
     requestWithdrawal: "Nemi Cirewa", submitting: "Ana Aika...",
     howWithdrawalsWork: "Yadda Cirewa ke Aiki", feesInfo: "Kuɗi, darajar musanya, da bayanin biyan kuɗi",
     withdrawalFeeNotice: "Sanarwar Kuɗin Cirewa",
-    withdrawalFeeDetail: "Ana cire kuɗin sarrafa $0.067 daga kowane cirewa.",
+    withdrawalFeeDetail: "Ana cire kuɗin sarrafa $0.07 daga kowane cirewa.",
     dollarConversion: "Darajar Canza Dala",
     dollarConversionDetail: "Duk ma'auni ana nuna su a Dalolin Amurka. Muna canza zuwa",
     stepByStep: "Tsarin Mataki-da-Mataki",
-    step1Title: "Nemi Cirewa", step1Desc: "Shigar da adadi (mafi ƙaranci $3.34), sunan banki da lambar asusun.",
-    step2Title: "An Cire $1.00", step2Desc: "Ana ɗaukar kuɗin sarrafa $0.067 daga adadin da ka nema.",
+    step1Title: "Nemi Cirewa", step1Desc: "Shigar da adadi (mafi ƙaranci $3.50), sunan banki da lambar asusun.",
+    step2Title: "An Cire $1.00", step2Desc: "Ana ɗaukar kuɗin sarrafa $0.07 daga adadin da ka nema.",
     step3Title: "Muna Canza zuwa Naira", step3Desc: "Sauran ana canza shi a $1 = ₦1,500.",
     step4Title: "Biyan Kuɗi a cikin 24hrs", step4Desc: "Ana aika kuɗi kai tsaye zuwa asusun bankin Najeriya naka.",
     youWithdraw: "Kana Cirewa", processingFee: "Kuɗin Sarrafawa",
@@ -246,7 +246,7 @@ const TRANSLATIONS = {
     sending: "Ana Aika…", thanksFeedback: "Na gode da ra'ayinka!",
     sendAnother: "Aika Wani",
     needSupport: "Kana buƙatar tallafi kai tsaye?",
-    supportEmail: "Aiko mana imel a support@promoearn.com · Muna amsa a cikin sa'o'i 24",
+    supportEmail: "Aiko mana imel a contact.promoearn@gmail.com · Muna amsa a cikin sa'o'i 24",
     logOutQuestion: "Fita?", logOutDesc: "Za a fitar da kai daga asusun PromoEarn naka. Ma'aunin ka da bayananka sun yi aminci.",
     yesLogOut: "Ee, Fita", cancelStayIn: "Soke, Ci Gaba",
   },
@@ -270,18 +270,18 @@ const TRANSLATIONS = {
     start: "Malite", completed: "Emechara",
     totalBalance: "Ego Niile", withdrawn: "Ewepụrụ",
     transactionHistory: "Akụkọ Azụmahịa", noTransactions: "Ọ nweghị azụmahịa ka",
-    withdrawFunds: "Wepu Ego", allAmountsUSD: "Ego niile na USD · Kacha ọchie $3.34",
+    withdrawFunds: "Wepu Ego", allAmountsUSD: "Ego niile na USD · Kacha ọchie $3.50",
     amount: "Ego ($)", accountNumber: "Nọmba Akaụntụ", bankName: "Aha Ụlọ Akụ",
     requestWithdrawal: "Arịọ Iwepụ Ego", submitting: "Na-eziga...",
     howWithdrawalsWork: "Otu Iwepụ Ego Si Arụ Ọrụ", feesInput: "Ụgwọ, ọnụ ahịa mgbanwe, na ozi ịkwụ ụgwọ",
     feesInfo: "Ụgwọ, ọnụ ahịa mgbanwe, na ozi ịkwụ ụgwọ",
     withdrawalFeeNotice: "Ọkwa Ụgwọ Iwepụ",
-    withdrawalFeeDetail: "A na-ewepụ ụgwọ nhazi $0.067 sitere na iwepụ niile.",
+    withdrawalFeeDetail: "A na-ewepụ ụgwọ nhazi $0.07 sitere na iwepụ niile.",
     dollarConversion: "Ọnụ Ahịa Mgbanwe Dollar",
     dollarConversionDetail: "E gosipụtara ọnụọgụ niile na Dollar America. Anyị na-agbanwe zuoputara",
     stepByStep: "Usoro Nzọụkwụ-Ka-Nzọụkwụ",
-    step1Title: "Arịọ Iwepụ Ego", step1Desc: "Tinye ego gị (kacha ọchie $3.34), aha ụlọ akụ na nọmba akaụntụ.",
-    step2Title: "A Wepụrụ $1.00", step2Desc: "A na-ewepụ ụgwọ nhazi $0.067 sitere n'ego i rịọrọ.",
+    step1Title: "Arịọ Iwepụ Ego", step1Desc: "Tinye ego gị (kacha ọchie $3.50), aha ụlọ akụ na nọmba akaụntụ.",
+    step2Title: "A Wepụrụ $1.00", step2Desc: "A na-ewepụ ụgwọ nhazi $0.07 sitere n'ego i rịọrọ.",
     step3Title: "Anyị Na-agbanwe zuoputara Naira", step3Desc: "A na-agbanwe ihe fọdụrụ na $1 = ₦1,500.",
     step4Title: "Ịkwụ Ụgwọ n'ime 24hrs", step4Desc: "A na-eziga ego ozugbo n'akaụntụ ụlọ akụ Nigeria gị.",
     youWithdraw: "Ị Na-ewepụ", processingFee: "Ụgwọ Nhazi",
@@ -311,7 +311,7 @@ const TRANSLATIONS = {
     sending: "Na-ezipu…", thanksFeedback: "Daalụ maka nzaghachi gị!",
     sendAnother: "Zipu Ọzọ",
     needSupport: "Chọọ nkwado ozugbo?",
-    supportEmail: "Zipụ anyị email na support@promoearn.com · Anyị na-azaghachi n'ime awa 24",
+    supportEmail: "Zipụ anyị email na contact.promoearn@gmail.com · Anyị na-azaghachi n'ime awa 24",
     logOutQuestion: "Pụọ?", logOutDesc: "A ga-apụ gị n'akaụntụ PromoEarn gị. Ego gị na data gị dị mma.",
     yesLogOut: "Ee, Pụọ", cancelStayIn: "Kagbuo, Nọdụ",
   },
@@ -335,17 +335,17 @@ const TRANSLATIONS = {
     start: "Commencer", completed: "Terminé",
     totalBalance: "Solde Total", withdrawn: "Retiré",
     transactionHistory: "Historique des Transactions", noTransactions: "Aucune transaction pour l'instant",
-    withdrawFunds: "Retirer des Fonds", allAmountsUSD: "Tous les montants en USD · Min. $3.34",
+    withdrawFunds: "Retirer des Fonds", allAmountsUSD: "Tous les montants en USD · Min. $3.50",
     amount: "Montant ($)", accountNumber: "Numéro de Compte", bankName: "Nom de la Banque",
     requestWithdrawal: "Demander un Retrait", submitting: "Envoi en cours...",
     howWithdrawalsWork: "Comment Fonctionnent les Retraits", feesInfo: "Frais, taux de conversion et infos de paiement",
     withdrawalFeeNotice: "Avis de Frais de Retrait",
-    withdrawalFeeDetail: "Des frais de traitement fixes de $0.067 sont déduits de chaque retrait.",
+    withdrawalFeeDetail: "Des frais de traitement fixes de $0.07 sont déduits de chaque retrait.",
     dollarConversion: "Taux de Conversion du Dollar",
     dollarConversionDetail: "Tous les soldes sont affichés en Dollars US. Nous convertissons à",
     stepByStep: "Processus Étape par Étape",
-    step1Title: "Demander un Retrait", step1Desc: "Entrez votre montant (min $3.34), nom de banque et numéro de compte.",
-    step2Title: "Frais $1.00 Déduits", step2Desc: "Des frais de traitement de $0.067 sont prélevés sur votre montant demandé.",
+    step1Title: "Demander un Retrait", step1Desc: "Entrez votre montant (min $3.50), nom de banque et numéro de compte.",
+    step2Title: "Frais $1.00 Déduits", step2Desc: "Des frais de traitement de $0.07 sont prélevés sur votre montant demandé.",
     step3Title: "Nous Convertissons en Naira", step3Desc: "Le solde restant est converti à $1 = ₦1,500.",
     step4Title: "Paiement sous 24–48h", step4Desc: "Les fonds sont envoyés directement à votre compte bancaire nigérian.",
     youWithdraw: "Vous retirez", processingFee: "Frais de traitement",
@@ -375,7 +375,7 @@ const TRANSLATIONS = {
     sending: "Envoi…", thanksFeedback: "Merci pour vos commentaires!",
     sendAnother: "Envoyer un Autre",
     needSupport: "Besoin d'un support direct?",
-    supportEmail: "Envoyez-nous un email à support@promoearn.com · Nous répondons dans 24h",
+    supportEmail: "Envoyez-nous un email à contact.promoearn@gmail.com · Nous répondons dans 24h",
     logOutQuestion: "Se Déconnecter?", logOutDesc: "Vous serez déconnecté de votre compte PromoEarn. Votre solde et vos données sont en sécurité.",
     yesLogOut: "Oui, Se Déconnecter", cancelStayIn: "Annuler, Rester",
   },
@@ -399,17 +399,17 @@ const TRANSLATIONS = {
     start: "ابدأ", completed: "مكتمل",
     totalBalance: "الرصيد الإجمالي", withdrawn: "المسحوب",
     transactionHistory: "سجل المعاملات", noTransactions: "لا توجد معاملات بعد",
-    withdrawFunds: "سحب الأموال", allAmountsUSD: "جميع المبالغ بالدولار · الحد الأدنى $3.34",
+    withdrawFunds: "سحب الأموال", allAmountsUSD: "جميع المبالغ بالدولار · الحد الأدنى $3.50",
     amount: "المبلغ ($)", accountNumber: "رقم الحساب", bankName: "اسم البنك",
     requestWithdrawal: "طلب سحب", submitting: "جار الإرسال...",
     howWithdrawalsWork: "كيف تعمل عمليات السحب", feesInfo: "الرسوم وسعر الصرف ومعلومات الدفع",
     withdrawalFeeNotice: "إشعار رسوم السحب",
-    withdrawalFeeDetail: "يتم خصم رسوم معالجة ثابتة قدرها $0.067 من كل عملية سحب.",
+    withdrawalFeeDetail: "يتم خصم رسوم معالجة ثابتة قدرها $0.07 من كل عملية سحب.",
     dollarConversion: "سعر تحويل الدولار",
     dollarConversionDetail: "تُعرض جميع الأرصدة بالدولار الأمريكي. نحن نحول بسعر",
     stepByStep: "العملية خطوة بخطوة",
-    step1Title: "طلب السحب", step1Desc: "أدخل مبلغك (الحد الأدنى $3.34) واسم البنك ورقم الحساب.",
-    step2Title: "خصم $1.00", step2Desc: "يتم أخذ رسوم معالجة بقيمة $0.067 من مبلغك المطلوب.",
+    step1Title: "طلب السحب", step1Desc: "أدخل مبلغك (الحد الأدنى $3.50) واسم البنك ورقم الحساب.",
+    step2Title: "خصم $1.00", step2Desc: "يتم أخذ رسوم معالجة بقيمة $0.07 من مبلغك المطلوب.",
     step3Title: "نحوّل إلى نايرا", step3Desc: "يُحوَّل الرصيد المتبقي بسعر $1 = ₦1,500.",
     step4Title: "الدفع خلال 24–48 ساعة", step4Desc: "يُرسَل المال مباشرة إلى حسابك المصرفي النيجيري.",
     youWithdraw: "تسحب", processingFee: "رسوم المعالجة",
@@ -439,7 +439,7 @@ const TRANSLATIONS = {
     sending: "جار الإرسال…", thanksFeedback: "شكراً على تعليقك!",
     sendAnother: "إرسال آخر",
     needSupport: "تحتاج دعماً مباشراً؟",
-    supportEmail: "راسلنا على support@promoearn.com · نرد في غضون 24 ساعة",
+    supportEmail: "راسلنا على contact.promoearn@gmail.com · نرد في غضون 24 ساعة",
     logOutQuestion: "تسجيل الخروج؟", logOutDesc: "ستخرج من حساب PromoEarn الخاص بك. رصيدك وبياناتك في أمان.",
     yesLogOut: "نعم، اخرج", cancelStayIn: "إلغاء، ابقَ",
   },
@@ -463,17 +463,17 @@ const TRANSLATIONS = {
     start: "Iniciar", completed: "Concluído",
     totalBalance: "Saldo Total", withdrawn: "Sacado",
     transactionHistory: "Histórico de Transações", noTransactions: "Nenhuma transação ainda",
-    withdrawFunds: "Sacar Fundos", allAmountsUSD: "Todos os valores em USD · Mín. $3.34",
+    withdrawFunds: "Sacar Fundos", allAmountsUSD: "Todos os valores em USD · Mín. $3.50",
     amount: "Valor ($)", accountNumber: "Número da Conta", bankName: "Nome do Banco",
     requestWithdrawal: "Solicitar Saque", submitting: "Enviando...",
     howWithdrawalsWork: "Como Funcionam os Saques", feesInfo: "Taxas, taxa de câmbio e info de pagamento",
     withdrawalFeeNotice: "Aviso de Taxa de Saque",
-    withdrawalFeeDetail: "Uma taxa de processamento de $0.067 é deduzida de cada saque.",
+    withdrawalFeeDetail: "Uma taxa de processamento de $0.07 é deduzida de cada saque.",
     dollarConversion: "Taxa de Conversão do Dólar",
     dollarConversionDetail: "Todos os saldos são mostrados em Dólares Americanos. Convertemos a",
     stepByStep: "Processo Passo a Passo",
-    step1Title: "Solicitar Saque", step1Desc: "Insira seu valor (mín $3.34), nome do banco e número da conta.",
-    step2Title: "Taxa $1.00 Deduzida", step2Desc: "Uma taxa de processamento de $0.067 é retirada do valor solicitado.",
+    step1Title: "Solicitar Saque", step1Desc: "Insira seu valor (mín $3.50), nome do banco e número da conta.",
+    step2Title: "Taxa $1.00 Deduzida", step2Desc: "Uma taxa de processamento de $0.07 é retirada do valor solicitado.",
     step3Title: "Convertemos para Naira", step3Desc: "O saldo restante é convertido a $1 = ₦1,500.",
     step4Title: "Pagamento em 24–48h", step4Desc: "Os fundos são enviados diretamente para sua conta bancária nigeriana.",
     youWithdraw: "Você saca", processingFee: "Taxa de processamento",
@@ -503,7 +503,7 @@ const TRANSLATIONS = {
     sending: "Enviando…", thanksFeedback: "Obrigado pelo seu feedback!",
     sendAnother: "Enviar Outro",
     needSupport: "Precisa de suporte direto?",
-    supportEmail: "Envie-nos um email para support@promoearn.com · Respondemos em 24h",
+    supportEmail: "Envie-nos um email para contact.promoearn@gmail.com · Respondemos em 24h",
     logOutQuestion: "Sair?", logOutDesc: "Você será desconectado da sua conta PromoEarn. Seu saldo e dados estão seguros.",
     yesLogOut: "Sim, Sair", cancelStayIn: "Cancelar, Ficar",
   },
@@ -527,17 +527,17 @@ const TRANSLATIONS = {
     start: "Iniciar", completed: "Completado",
     totalBalance: "Saldo Total", withdrawn: "Retirado",
     transactionHistory: "Historial de Transacciones", noTransactions: "No hay transacciones aún",
-    withdrawFunds: "Retirar Fondos", allAmountsUSD: "Todos los montos en USD · Mín. $3.34",
+    withdrawFunds: "Retirar Fondos", allAmountsUSD: "Todos los montos en USD · Mín. $3.50",
     amount: "Monto ($)", accountNumber: "Número de Cuenta", bankName: "Nombre del Banco",
     requestWithdrawal: "Solicitar Retiro", submitting: "Enviando...",
     howWithdrawalsWork: "Cómo Funcionan los Retiros", feesInfo: "Comisiones, tasa de conversión e info de pago",
     withdrawalFeeNotice: "Aviso de Comisión de Retiro",
-    withdrawalFeeDetail: "Se deduce una comisión fija de procesamiento de $0.067 de cada retiro.",
+    withdrawalFeeDetail: "Se deduce una comisión fija de procesamiento de $0.07 de cada retiro.",
     dollarConversion: "Tasa de Conversión del Dólar",
     dollarConversionDetail: "Todos los saldos se muestran en Dólares Americanos. Convertimos a",
     stepByStep: "Proceso Paso a Paso",
-    step1Title: "Solicitar Retiro", step1Desc: "Ingresa tu monto (mín $3.34), nombre del banco y número de cuenta.",
-    step2Title: "Comisión $1.00 Deducida", step2Desc: "Se toma una comisión de procesamiento de $0.067 de tu monto solicitado.",
+    step1Title: "Solicitar Retiro", step1Desc: "Ingresa tu monto (mín $3.50), nombre del banco y número de cuenta.",
+    step2Title: "Comisión $1.00 Deducida", step2Desc: "Se toma una comisión de procesamiento de $0.07 de tu monto solicitado.",
     step3Title: "Convertimos a Naira", step3Desc: "El saldo restante se convierte a $1 = ₦1,500.",
     step4Title: "Pago en 24–48h", step4Desc: "Los fondos se envían directamente a tu cuenta bancaria nigeriana.",
     youWithdraw: "Tú retiras", processingFee: "Comisión de procesamiento",
@@ -567,7 +567,7 @@ const TRANSLATIONS = {
     sending: "Enviando…", thanksFeedback: "¡Gracias por tus comentarios!",
     sendAnother: "Enviar Otro",
     needSupport: "¿Necesitas soporte directo?",
-    supportEmail: "Escríbenos a support@promoearn.com · Respondemos en 24h",
+    supportEmail: "Escríbenos a contact.promoearn@gmail.com · Respondemos en 24h",
     logOutQuestion: "¿Cerrar Sesión?", logOutDesc: "Serás desconectado de tu cuenta PromoEarn. Tu saldo y datos están seguros.",
     yesLogOut: "Sí, Cerrar Sesión", cancelStayIn: "Cancelar, Quedarme",
   },
@@ -662,7 +662,14 @@ const SH = ({ title, action, onAction }) => (
     {action && <TouchableOpacity onPress={onAction} activeOpacity={0.7}><Text style={{ fontFamily:fonts.semibold, fontSize:13, color:C.blue }}>{action}</Text></TouchableOpacity>}
   </View>
 );
-
+// ── Fake tasks shown to unactivated users ─────────────────────────────────
+const FAKE_TASKS = [
+  { id:"demo_1", type:"social", brand:"Nike",    title:"Follow Nike's official Instagram page",          reward:"2.15", slots:500, filled:312, time:"1 min",  color:"#EF4444" },
+  { id:"demo_2", type:"video",  brand:"Samsung", title:"Watch the Samsung Galaxy S25 launch video",       reward:"2.20", slots:300, filled:187, time:"2 min",  color:"#1A56DB" },
+  { id:"demo_3", type:"share",  brand:"Jumia",   title:"Share Jumia Black Friday sale to WhatsApp",       reward:"1.18", slots:200, filled:94,  time:"1 min",  color:"#F97316" },
+  { id:"demo_4", type:"review", brand:"Konga",   title:"Leave a 5-star review on the Konga app",          reward:"1.25", slots:150, filled:55,  time:"3 min",  color:"#10B981" },
+  { id:"demo_5", type:"survey", brand:"MTN",     title:"Complete MTN customer satisfaction survey",       reward:"3.30", slots:100, filled:23,  time:"4 min",  color:"#F59E0B" },
+];
 // ── Shared TaskCard (used in HomeScreen + PromoSpaceScreen) ────────────────
 const TaskCard = ({ task, locked, onStart, completed, completedIds }) => {
   const ts   = TYPE_STYLE[task.type] || TYPE_STYLE.social;
@@ -714,9 +721,8 @@ const TaskCard = ({ task, locked, onStart, completed, completedIds }) => {
       <View style={{ alignItems:"flex-end", justifyContent:"space-between", minWidth:70 }}>
         <Text style={z.taskReward}>+${parseFloat(task.reward).toFixed(2)}</Text>
         {done ? (
-          <View style={z.doneBtn}>
-            <Ico.Check sz={12} cl={C.green}/>
-            <Text style={{ fontFamily:fonts.semibold, fontSize:12, color:C.green }}>Done</Text>
+          <View style={[z.startBtn, { backgroundColor:C.border }]}>
+            <Ico.Lock sz={13} cl={C.muted}/>
           </View>
         ) : locked ? (
           <View style={[z.startBtn, { backgroundColor:C.border }]}>
@@ -1329,7 +1335,7 @@ const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
  
     const refToUse = ref || reference;
     if (!refToUse) {
-      setError("Payment reference missing. If you paid, contact support@promoearn.com");
+      setError("Payment reference missing. If you paid, contact contact.promoearn@gmail.com");
       setVerifying(false);
       return;
     }
@@ -1613,7 +1619,7 @@ const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
               <Text style={[sm.summaryLbl, { fontFamily: fonts.bold, color: "#0F172A" }]}>
                 Min. Withdrawal
               </Text>
-              <Text style={[sm.summaryVal, { color: "#1A56DB" }]}>$3.34.00</Text>
+              <Text style={[sm.summaryVal, { color: "#1A56DB" }]}>$3.50.00</Text>
             </View>
  
             {error && (
@@ -2082,16 +2088,27 @@ const markTaskDone = async (taskId) => {
       {/* Tasks preview */}
       <View style={{ paddingHorizontal: 16, marginBottom: 18 }}>
         <SH title={t("latestTasks")} action={`${t("promoSpace")} →`} onAction={() => onTabChange("promo")} C={C} />
-        {tasks.slice(0, 3).map(task => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            locked={!(user?.isActivated || user?.isAdmin)}
-            completedIds={completedIds}   // ← always up to date now
-            onStart={handleStart}
-          />
-        ))}
-        {tasks.length === 0 && (
+        {!(user?.isActivated || user?.isAdmin)
+          ? FAKE_TASKS.slice(0, 3).map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                locked={true}
+                completedIds={[]}
+                onStart={() => {}}
+              />
+            ))
+          : tasks.slice(0, 3).map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                locked={false}
+                completedIds={completedIds}
+                onStart={handleStart}
+              />
+            ))
+        }
+        {(user?.isActivated || user?.isAdmin) && tasks.length === 0 && (
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted, textAlign: "center", paddingVertical: 20 }}>
             {t("noTasksYet")}
           </Text>
@@ -2337,7 +2354,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const [pinMode,        setPinMode]        = useState("setup");
   const [showPin,        setShowPin]        = useState(true);
 
-  const WITHDRAWAL_FEE = 0.33;
+  const WITHDRAWAL_FEE =100 / 1500;  // ₦100 = $0.07
   const NGN_RATE       = 1500;
   const withdrawAmt    = parseFloat(amount) || 0;
   const youReceive     = withdrawAmt > 0 ? Math.max(0, withdrawAmt - WITHDRAWAL_FEE) : 0;
@@ -2425,7 +2442,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const handleSubmit = async () => {
     setError("");
     const amt = parseFloat(amount);
-    if (!amt || amt < 3.50)            { setError("Minimum withdrawal is $3.34."); return; }
+    if (!amt || amt < 3.50)            { setError("Minimum withdrawal is $3.50."); return; }
     if (!accountName)                  { setError("Please verify your account first."); return; }
     if ((user?.balance || 0) < amt)    { setError("Insufficient balance."); return; }
 
@@ -2652,7 +2669,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: C.muted, marginRight: 6 }}>$</Text>
         <TextInput
           style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: C.dark }}
-          placeholder="Min. $3.34"
+          placeholder="Min. $3.50"
           placeholderTextColor={C.slate}
           keyboardType="numeric"
           value={amount}
@@ -2856,7 +2873,7 @@ function WalletScreen({ user, onUserUpdate, balanceHidden, onToggleHide, C, lang
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawForm.amount);
-    if (!amount || amount < 1.00) { Alert.alert("Minimum withdrawal is $3.34"); return; }
+    if (!amount || amount < 1.00) { Alert.alert("Minimum withdrawal is $3.50"); return; }
     if (!withdrawForm.accountNumber || !withdrawForm.bankName) { Alert.alert("Please fill all fields"); return; }
     setSubmitting(true);
     try {
@@ -3282,11 +3299,11 @@ function ProfileScreen({ user, onUpgrade, onLogout, onHelp, balanceHidden, C, la
   const FAQ_ITEMS = [
     { q:"How do I earn money?",                a:"Complete tasks in the PromoSpace tab. Each task shows how much you earn. Tap Start, do the task, then tap Done to claim your reward." },
     { q:"When do I get paid?",                 a:"Withdrawal requests are processed within 24 hours. Funds are sent directly to your Local bank account account." },
-    { q:"What is the withdrawal fee?",         a:"There is a flat $0.067 processing fee deducted from every withdrawal. For example, withdrawing $5.00 gives you $4.00 in your bank." },
+    { q:"What is the withdrawal fee?",         a:"There is a flat $0.07 processing fee deducted from every withdrawal. For example, withdrawing $5.00 gives you $4.00 in your bank." },
     { q:"What is the conversion rate?",        a:"We convert your USD balance to Naira at a fixed rate of $1 = ₦1,500. All balances in the app are shown in US Dollars." },
     { q:"How does the referral program work?", a:"Share your referral code. When a friend signs up and activates their account, you earn a $1.33 bonus instantly." },
     { q:"Why is my account locked?",           a:"You need to activate your account with a one-time $3.00 fee to access all tasks and features. Tap 'Activate Account' to get started." },
-    { q:"How do I contact support?",           a:"Use the Feedback tab in this screen to send us a message, or email us at support@promoearn.com. We respond within 24 hours." },
+    { q:"How do I contact support?",           a:"Use the Feedback tab in this screen to send us a message, or email us at contact.promoearn@gmail.com. We respond within 24 hours." },
   ];
 
   return (

@@ -385,40 +385,40 @@ function LandingPage({ onEmail, onGoogle, googleLoading, googleReady, onLogin })
         </View>
       </View>
 
-      {/* Buttons */}
-      <View style={{ flex: 1, padding: 24, paddingTop: 28, gap: 12 }}>
-        {/* Phone — primary blue */}
+{/* Buttons */}
+<View style={{ flex: 1, padding: 24, paddingTop: 28, gap: 12 }}>
 
-        {/* Email */}
-        <TouchableOpacity onPress={onEmail} activeOpacity={0.85}
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-            backgroundColor: "BLUE", borderRadius: 16, height: 56 }}>
-          <Icon.Mail size={18} color={WHITE} />
-          <Text style={{ fontSize: 15, fontFamily: fonts.semibold, color: WHITE }}>Continue with Email</Text>
-        </TouchableOpacity>
+  {/* Email — primary blue */}
+  <TouchableOpacity onPress={onEmail} activeOpacity={0.85}
+    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+      backgroundColor: BLUE, borderRadius: 16, height: 56,
+      shadowColor: BLUE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 }}>
+    <Icon.Mail size={18} color={WHITE} />
+    <Text style={{ fontSize: 15, fontFamily: fonts.bold, color: WHITE, letterSpacing: 0.2 }}>Continue with Email</Text>
+  </TouchableOpacity>
 
-        {/* Google */}
-        <TouchableOpacity onPress={onGoogle} disabled={!googleReady || googleLoading} activeOpacity={0.85}
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-            backgroundColor: WHITE, borderRadius: 16, height: 56, borderWidth: 1.5, borderColor: "#E2E8F0",
-            opacity: (!googleReady || googleLoading) ? 0.6 : 1 }}>
-          {googleLoading
-            ? <ActivityIndicator size="small" color="#64748B" />
-            : <>
-                <Icon.Google size={18} />
-                <Text style={{ fontSize: 15, fontFamily: fonts.semibold, color: "#334155" }}>Continue with Google</Text>
-              </>
-          }
-        </TouchableOpacity>
+  {/* Google */}
+  <TouchableOpacity onPress={onGoogle} disabled={!googleReady || googleLoading} activeOpacity={0.85}
+    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+      backgroundColor: WHITE, borderRadius: 16, height: 56, borderWidth: 1.5, borderColor: "#E2E8F0",
+      opacity: (!googleReady || googleLoading) ? 0.6 : 1 }}>
+    {googleLoading
+      ? <ActivityIndicator size="small" color="#64748B" />
+      : <>
+          <Icon.Google size={18} />
+          <Text style={{ fontSize: 15, fontFamily: fonts.semibold, color: "#334155" }}>Continue with Google</Text>
+        </>
+    }
+  </TouchableOpacity>
 
-        {/* Login */}
-        <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 4 }}>
-          <Text style={{ fontSize: 14, color: "#64748B", fontFamily: fonts.regular }}>Already have an account? </Text>
-          <TouchableOpacity onPress={onLogin} activeOpacity={0.7}>
-            <Text style={{ fontSize: 14, color: BLUE, fontFamily: fonts.bold }}>Login</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+  {/* Login */}
+  <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 4 }}>
+    <Text style={{ fontSize: 14, color: "#64748B", fontFamily: fonts.regular }}>Already have an account? </Text>
+    <TouchableOpacity onPress={onLogin} activeOpacity={0.7}>
+      <Text style={{ fontSize: 14, color: BLUE, fontFamily: fonts.bold }}>Login</Text>
+    </TouchableOpacity>
+  </View>
+</View>
     </View>
   );
 }

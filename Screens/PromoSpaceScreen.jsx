@@ -78,6 +78,14 @@ const STEP_INFO = [
   { n: 3, label: "Review",   emoji: "🚀" },
 ];
 
+const FAKE_TASKS = [
+  { id:"demo_1", type:"social", brand:"Nike",    title:"Follow Nike's official Instagram page",          reward:"2.15", slots:500, filled:312, time:"1 min",  color:"#EF4444" },
+  { id:"demo_2", type:"video",  brand:"Samsung", title:"Watch the Samsung Galaxy S25 launch video",       reward:"2.20", slots:300, filled:187, time:"2 min",  color:"#1A56DB" },
+  { id:"demo_3", type:"share",  brand:"Jumia",   title:"Share Jumia Black Friday sale to WhatsApp",       reward:"1.18", slots:200, filled:94,  time:"1 min",  color:"#F97316" },
+  { id:"demo_4", type:"review", brand:"Konga",   title:"Leave a 5-star review on the Konga app",          reward:"3.25", slots:150, filled:55,  time:"3 min",  color:"#10B981" },
+  { id:"demo_5", type:"survey", brand:"MTN",     title:"Complete MTN customer satisfaction survey",       reward:"1.30", slots:100, filled:23,  time:"4 min",  color:"#F59E0B" },
+];
+
 // ── API helpers ────────────────────────────────────────────────────────────
 const api = async (endpoint, options = {}) => {
   const token = await AuthService.getToken();
@@ -181,7 +189,9 @@ const TaskCard = ({ task, locked, onStart, completedIds, C, onSlotsFull }) => {
       <View style={{ alignItems:"flex-end", justifyContent:"space-between", gap:8, flexShrink:0 }}>
         <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.green }}>+${parseFloat(task.reward||0).toFixed(2)}</Text>
         {done ? (
-          <View style={TC.doneBtn}><I.Check s={11}/><Text style={{ fontSize:11, color:C.green, fontFamily:fonts.bold }}>Done</Text></View>
+  <View style={[TC.actionBtn, { backgroundColor:C.border }]}>
+    <I.Lock s={13} c={C.muted}/>
+  </View>
         ) : isFull ? (
           <TouchableOpacity style={TC.fullBtn} onPress={() => onSlotsFull?.(task)} activeOpacity={0.8}>
             <Text style={{ fontSize:9, color:"#EF4444", fontFamily:fonts.bold }}>Full</Text>
@@ -697,6 +707,7 @@ function AdvertiseSection({ user, C }) {
   const [showPay,    setShowPay]  = useState(false);
   const [campaignId, setCId]      = useState(null);
   const [done,       setDone]     = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const set   = (k,v) => setForm(p => ({...p,[k]:v}));
   const quote = selType && form.slots ? calcQuote(selType, form.slots) : null;
@@ -822,9 +833,57 @@ function AdvertiseSection({ user, C }) {
             <Field label="Contact Email *" placeholder="you@company.com" value={form.contactEmail} onChange={v=>set("contactEmail",v)} hint="We'll send campaign updates here" C={C}/>
             <TaskTypeGrid selected={selType} onSelect={setSelType} C={C}/>
             <View style={{ flexDirection:"row", gap:12 }}>
-              <View style={{ flex:1 }}><Field label="Target Count" placeholder="e.g. 500" value={form.targetCount} onChange={v=>set("targetCount",v)} numeric hint="Your goal" C={C}/></View>
-              <View style={{ flex:1 }}><Field label="No. of Slots *" placeholder="e.g. 100" value={form.slots} onChange={v=>set("slots",v)} numeric hint="Users who will do it" C={C}/></View>
-            </View>
+  <View style={{ flex:1 }}>
+    <Field
+      label="Target Count"
+      placeholder="e.g. 500"
+      value={form.targetCount}
+      onChange={v => {
+        set("targetCount", v);
+        const n = parseInt(v) || 0;
+        setFieldErrors(p => ({
+          ...p,
+          targetCount: v && n < 100 ? "Minimum is 100" : null,
+        }));
+      }}
+      numeric
+      hint={fieldErrors.targetCount
+        ? undefined
+        : "Your goal"}
+      C={C}
+    />
+    {fieldErrors.targetCount && (
+      <Text style={{ fontSize:11, color:"#EF4444", marginTop:-10, marginBottom:8 }}>
+        ⚠ {fieldErrors.targetCount}
+      </Text>
+    )}
+  </View>
+  <View style={{ flex:1 }}>
+    <Field
+      label="No. of Slots *"
+      placeholder="Min. 100"
+      value={form.slots}
+      onChange={v => {
+        set("slots", v);
+        const n = parseInt(v) || 0;
+        setFieldErrors(p => ({
+          ...p,
+          slots: n > 0 && n < 100 ? "Minimum is 100" : null,
+        }));
+      }}
+      numeric
+      hint={fieldErrors.slots
+        ? undefined
+        : "Users who will do it"}
+      C={C}
+    />
+    {fieldErrors.slots && (
+      <Text style={{ fontSize:11, color:"#EF4444", marginTop:-10, marginBottom:8 }}>
+        ⚠ {fieldErrors.slots}
+      </Text>
+    )}
+  </View>
+</View>
             {quote && (
               <View style={{ backgroundColor:C.goldSoft, borderRadius:14, padding:16, marginBottom:20, borderWidth:1.5, borderColor:"#FDE68A" }}>
                 <View style={{ flexDirection:"row", alignItems:"center", gap:7, marginBottom:10 }}>
@@ -844,12 +903,22 @@ function AdvertiseSection({ user, C }) {
                 </View>
               </View>
             )}
-            <TouchableOpacity
-              style={[FF.nextBtn, { backgroundColor:C.blue }, (!form.brandName||!selType||!form.slots||!form.contactEmail)&&{opacity:0.45}]}
-              onPress={()=>{ if(form.brandName&&selType&&form.slots&&form.contactEmail) setStep(2); }}
-              activeOpacity={0.85}>
-              <Text style={FF.nextBtnTxt}>Continue →</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+  style={[FF.nextBtn, { backgroundColor:C.blue },
+    (!form.brandName || !selType || !form.slots || !form.contactEmail ||
+     fieldErrors.slots || fieldErrors.targetCount) && { opacity:0.45 }
+  ]}
+  onPress={() => {
+    if (!form.brandName || !selType || !form.slots || !form.contactEmail) return;
+    if (fieldErrors.slots || fieldErrors.targetCount) return;
+    if ((parseInt(form.slots) || 0) < 100) {
+      setFieldErrors(p => ({ ...p, slots: "Minimum is 100" })); return;
+    }
+    setStep(2);
+  }}
+  activeOpacity={0.85}>
+  <Text style={FF.nextBtnTxt}>Continue →</Text>
+</TouchableOpacity>
           </View>
         )}
 
@@ -1261,20 +1330,25 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
           <FilterTabBar filter={filter} onFilter={setFilter} C={C}/>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal:16, paddingBottom:32, paddingTop:6 }} showsVerticalScrollIndicator={false}>
-            {loading ? (
-              <View style={{ alignItems:"center", paddingVertical:48 }}>
-                <ActivityIndicator color={C.blue} size="large"/>
-                <Text style={{ fontSize:13, color:C.muted, marginTop:12 }}>Loading tasks…</Text>
-              </View>
-            ) : sorted.length===0 ? (
-              <View style={{ alignItems:"center", paddingVertical:48 }}>
-                <Text style={{ fontSize:40, marginBottom:10 }}>📭</Text>
-                <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.dark }}>No tasks found</Text>
-                <Text style={{ fontSize:13, color:C.muted, marginTop:4 }}>Check back soon</Text>
-              </View>
-            ) : sorted.map(task=>(
-              <TaskCard key={task.id} task={task} locked={locked} completedIds={doneIds} onStart={handleStart} onSlotsFull={t=>{setSlotTask(t);setShowSlot(true);}} C={C}/>
-            ))}
+          {loading ? (
+  <View style={{ alignItems:"center", paddingVertical:48 }}>
+    <ActivityIndicator color={C.blue} size="large"/>
+    <Text style={{ fontSize:13, color:C.muted, marginTop:12 }}>Loading tasks…</Text>
+  </View>
+) : locked ? (
+  // Show fake tasks for unactivated users
+  FAKE_TASKS.map(task => (
+    <TaskCard key={task.id} task={task} locked={true} completedIds={[]} onStart={()=>{}} onSlotsFull={()=>{}} C={C}/>
+  ))
+) : sorted.length===0 ? (
+  <View style={{ alignItems:"center", paddingVertical:48 }}>
+    <Text style={{ fontSize:40, marginBottom:10 }}>📭</Text>
+    <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.dark }}>No tasks found</Text>
+    <Text style={{ fontSize:13, color:C.muted, marginTop:4 }}>Check back soon</Text>
+  </View>
+) : sorted.map(task=>(
+  <TaskCard key={task.id} task={task} locked={false} completedIds={doneIds} onStart={handleStart} onSlotsFull={t=>{setSlotTask(t);setShowSlot(true);}} C={C}/>
+))}
           </ScrollView>
 
           {locked && (
@@ -1292,7 +1366,7 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
                   <I.Crown s={15} c={C.dark}/>
                   <Text style={{ fontFamily:fonts.bold, fontSize:15, color:C.dark }}>Activate · $3.00</Text>
                 </TouchableOpacity>
-                <Text style={{ fontSize:11, color:C.muted, marginTop:10 }}>One-time · $0.33 welcome bonus</Text>
+                <Text style={{ fontSize:11, color:C.muted, marginTop:10 }}>One-time · Unlock 5 earning tasks instantly</Text>
               </View>
             </View>
           )}

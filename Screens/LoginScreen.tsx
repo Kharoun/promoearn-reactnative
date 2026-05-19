@@ -195,14 +195,14 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
 
           {/* Identifier field */}
           <View style={st.fieldWrap}>
-            <Text style={st.label}>Email or Phone Number</Text>
+            <Text style={st.label}>Email Address</Text>
             <View style={[st.inputRow, focused==="id"&&st.inputFocused, identifierError&&st.inputError]}>
               <View style={{ marginRight:10 }}>
                 <IdIcon size={18} color={focused==="id"?BLUE:"#94A3B8"}/>
               </View>
               <TextInput
                 style={st.input}
-                placeholder="you@example.com or 07015662471"
+                placeholder="you@example.com"
                 placeholderTextColor="#CBD5E1"
                 value={identifier}
                 onChangeText={t => { setIdentifier(t); setIdentifierError(""); setError(""); }}
@@ -219,7 +219,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
             </View>
             {identifierError
               ? <Text style={st.fieldError}>{identifierError}</Text>
-              : <Text style={st.hint}>Enter your email or local phone number (e.g. 07015662471)</Text>
+              : <Text style={st.hint}>Enter your email address (e.g. you@example.com)</Text>
             }
           </View>
 

@@ -20,6 +20,8 @@ export function useGoogleAuth({ onSuccess, onError }) {
     iosClientId:     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     scopes: ["profile", "email"],
   });
+  // Add this line right after the useAuthRequest call (line 22):
+console.log("Redirect URI:", request?.redirectUri);
 
   useEffect(() => {
     if (!response) return;
