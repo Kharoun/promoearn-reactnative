@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "525249836609",
+    "project_id": "promo-earn",
+    "storage_bucket": "promo-earn.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:525249836609:android:235714ff61fd10650c38c0",
+        "android_client_info": {
+          "package_name": "com.promoearn.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWc9BkRWNVHwaEqFiCnIrSG-KbtfQfZCk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

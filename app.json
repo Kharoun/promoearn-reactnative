@@ -17,7 +17,8 @@
       }
     },
     "android": {
-      "package": "com.KhalidHaroun.promoearn",
+      "googleServicesFile": "./google-services.json",
+      "package": "com.promoearn.app",
       "jsEngine": "hermes",
       "permissions": [
         "READ_MEDIA_IMAGES",
@@ -62,15 +63,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "86a9222d-9c35-405f-b713-fa2531ce238b"
+        "projectId": "d8723daf-96c2-4109-b037-f855ad3add32"
       }
     },
-    "owner": "jst_haxl",
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/86a9222d-9c35-405f-b713-fa2531ce238b"
-    }
+   "updates": {
+  "url": "https://u.expo.dev/d8723daf-96c2-4109-b037-f855ad3add32"
+},
+    "owner": "promo-earn"
   }
 }
