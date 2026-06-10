@@ -57,7 +57,9 @@ console.log("Redirect URI:", request?.redirectUri);
       const data = await res.json();
       if (data.success) {
         await AuthService.saveTokens(data.data.accessToken, data.data.refreshToken);
+        await AuthService.recordLoginTime();
         onSuccessRef.current?.();
+      
       } else {
         onErrorRef.current?.(data.message || "Google login failed.");
       }

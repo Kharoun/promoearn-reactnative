@@ -125,8 +125,10 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
       setLoading(true); setError("");
       const result = await AuthService.login(identifier.trim(), password);
       if (result.success) {
+        await AuthService.recordLoginTime();
         setSuccess("Login successful! Redirecting...");
         setTimeout(() => onLogin(), 600);
+      
       } else {
         const msg = result.message || "";
         if (msg.toLowerCase().includes("password"))
@@ -263,16 +265,16 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
               : <Text style={st.ctaText}>Log In</Text>
             }
           </TouchableOpacity>
-
-          {/* Divider */}
+{/* 
+          Divider
           <View style={st.divider}>
             <View style={st.dividerLine}/>
             <Text style={st.dividerText}>or continue with</Text>
             <View style={st.dividerLine}/>
-          </View>
+          </View> */}
 
           {/* Google button */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[st.googleBtn, (!googleReady||anyLoading)&&{ opacity:0.6 }]}
             onPress={() => { setGoogleInfo(""); signInWithGoogle(); }}
             disabled={!googleReady||anyLoading} activeOpacity={0.85}>
@@ -283,7 +285,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
                   <Text style={st.googleText}>Continue with Google</Text>
                 </>
             }
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Google info message (not an error — it's an explanation) */}
           {googleInfo ? (

@@ -398,7 +398,7 @@ function LandingPage({ onEmail, onGoogle, googleLoading, googleReady, onLogin })
   </TouchableOpacity>
 
   {/* Google */}
-  <TouchableOpacity onPress={onGoogle} disabled={!googleReady || googleLoading} activeOpacity={0.85}
+  {/* <TouchableOpacity onPress={onGoogle} disabled={!googleReady || googleLoading} activeOpacity={0.85}
     style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
       backgroundColor: WHITE, borderRadius: 16, height: 56, borderWidth: 1.5, borderColor: "#E2E8F0",
       opacity: (!googleReady || googleLoading) ? 0.6 : 1 }}>
@@ -409,7 +409,7 @@ function LandingPage({ onEmail, onGoogle, googleLoading, googleReady, onLogin })
           <Text style={{ fontSize: 15, fontFamily: fonts.semibold, color: "#334155" }}>Continue with Google</Text>
         </>
     }
-  </TouchableOpacity>
+  </TouchableOpacity> */}
 
   {/* Login */}
   <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 4 }}>
@@ -585,7 +585,9 @@ export default function SignUpScreen({ onSignUp, onLogin }) {
       const result = await AuthService.register(payload);
   
       if (result.success) {
+        await AuthService.recordLoginTime();
         onSignUp(email, phone, mode);
+      
       } else {
         // Show field-level errors if available (most specific)
         if (result.errors && result.errors.length > 0) {

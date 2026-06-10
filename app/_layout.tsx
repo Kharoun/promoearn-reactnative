@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
   useFonts,
   Poppins_400Regular,
@@ -12,12 +13,13 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthService from "../services/authService";
 
-import SplashScreen    from "../Screens/SplashScreen";
-import LoginScreen     from "../Screens/LoginScreen";
-import SignUpScreen    from "../Screens/SignUpScreen";
-import VerifyOTPScreen from "../Screens/VerifyOTPScreen";
+import SplashScreen         from "../Screens/SplashScreen";
+import LoginScreen          from "../Screens/LoginScreen";
+import SignUpScreen         from "../Screens/SignUpScreen";
+import VerifyOTPScreen      from "../Screens/VerifyOTPScreen";
 import ForgotPasswordScreen from "../Screens/ForgotPasswordScreen";
-import Mainapp         from "../Screens/Mainapp";
+import Mainapp              from "../Screens/Mainapp";
+import * as ExpoSplashScreen from "expo-splash-screen";
 
 type Screen = "splash" | "signup" | "login" | "verify" | "app" | "forgot";
 
@@ -36,11 +38,31 @@ export default function RootLayout() {
     Poppins_900Black,
   });
 
+  useEffect(() => {
+    ExpoSplashScreen.hideAsync();
+  }, []);
+  
+  useEffect(() => {
+    const { AppState } = require("react-native");
+    const sub = AppState.addEventListener("change", async (nextState: string) => {
+      if (nextState === "active" && screen === "app") {
+        const expired = await AuthService.isSessionExpired();
+        if (expired) {
+          await AuthService.clearSession();
+          setScreen("login");
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [screen]);
+
   if (!fontsLoaded) {
     return (
-      <View style={{ flex:1, alignItems:"center", justifyContent:"center", backgroundColor:"#F8FAFF" }}>
-        <ActivityIndicator size="large" color="#1A56DB" />
-      </View>
+      <SafeAreaProvider>
+        <View style={{ flex:1, alignItems:"center", justifyContent:"center", backgroundColor:"#F8FAFF" }}>
+          <ActivityIndicator size="large" color="#1A56DB" />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
@@ -48,7 +70,14 @@ export default function RootLayout() {
     if (screen === "splash") {
       return <SplashScreen onFinish={async () => {
         const loggedIn = await AuthService.isLoggedIn();
-        setScreen(loggedIn ? "app" : "login");
+        if (!loggedIn) { setScreen("login"); return; }
+        const expired = await AuthService.isSessionExpired();
+        if (expired) {
+          await AuthService.clearSession();
+          setScreen("login");
+          return;
+        }
+        setScreen("app");
       }} />;
     }
 
@@ -66,6 +95,7 @@ export default function RootLayout() {
         />
       );
     }
+
     if (screen === "login") {
       return (
         <LoginScreen
@@ -75,7 +105,7 @@ export default function RootLayout() {
         />
       );
     }
-    
+
     if (screen === "forgot") {
       return (
         <ForgotPasswordScreen
@@ -84,6 +114,7 @@ export default function RootLayout() {
         />
       );
     }
+
     if (screen === "verify") {
       return (
         <VerifyOTPScreen
@@ -110,6 +141,5 @@ export default function RootLayout() {
     return null;
   };
 
-  return renderScreen();
+  return <SafeAreaProvider>{renderScreen()}</SafeAreaProvider>;
 }
- 

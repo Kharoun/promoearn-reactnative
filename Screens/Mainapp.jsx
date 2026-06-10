@@ -3,6 +3,8 @@
  * 5 Tabs: Home | PromoSpace | Wallet | Referral | Profile
  * Fully connected to backend API
  */
+// import { PanResponder } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from 'expo-clipboard';
 import PromoSpaceScreen from "./PromoSpaceScreen"
 import NotificationsListScreen from "./NotificationsListScreen";
@@ -3580,8 +3582,9 @@ const TABS_CONFIG = [
 const LOCKED_KEYS = ["promo","referral"];
 
 function TabBar({ active, onChange, isActivated, C, t }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[s.tabBar, { backgroundColor: C.card, borderTopColor: C.border }]}>
+    <View style={[s.tabBar, { backgroundColor: C.card, borderTopColor: C.border, paddingBottom: insets.bottom || 8 }]}>
       {TABS_CONFIG.map(t => {
         const isActive = active === t.key;
         const isLocked = !isActivated && LOCKED_KEYS.includes(t.key);
@@ -3818,7 +3821,7 @@ const s = StyleSheet.create({
   walActionTxt:   { fontFamily:fonts.semibold, fontSize:13, color:"#0F172A" },
   txRow:          { flexDirection:"row", alignItems:"center", paddingHorizontal:16, paddingVertical:14, gap:12 },
   txIco:          { width:36, height:36, borderRadius:12, alignItems:"center", justifyContent:"center" },
-  tabBar:         { flexDirection:"row", backgroundColor:"#FFFFFF", borderTopWidth:1, borderTopColor:"#E2E8F0", paddingBottom:Platform.OS==="ios"?24:8, paddingTop:10, shadowColor:"#000", shadowOffset:{width:0,height:-4}, shadowOpacity:0.05, shadowRadius:12, elevation:10 },
+  tabBar: { flexDirection:"row", backgroundColor:"#FFFFFF", borderTopWidth:1, borderTopColor:"#E2E8F0", paddingTop:10, shadowColor:"#000", shadowOffset:{width:0,height:-4}, shadowOpacity:0.05, shadowRadius:12, elevation:10 },
   tabItem:        { flex:1, alignItems:"center", gap:3, position:"relative" },
   tabLine:        { position:"absolute", top:-10, width:32, height:3, backgroundColor:"#1A56DB", borderRadius:2 },
   tabLabel:       { fontFamily:fonts.medium, fontSize:10, color:"#94A3B8" },

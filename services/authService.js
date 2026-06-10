@@ -224,6 +224,28 @@ const AuthService = {
   async getToken() {
     return TokenStore.getAccess();
   },
+  async recordLoginTime() {
+    await AsyncStorage.setItem("pe_session_start", Date.now().toString());
+  },
+  
+  async isSessionExpired() {
+    try {
+      const loginTime = await AsyncStorage.getItem("pe_session_start");
+      if (!loginTime) return true;
+      return Date.now() - parseInt(loginTime) > 24 * 60 * 1000;
+    } catch {
+      return true;
+    }
+  },
+  
+  async clearSession() {
+    await AsyncStorage.multiRemove([
+      "pe_session_start",
+      "pe_cached_user",
+      "@pe_access_token",
+      "@pe_refresh_token",
+    ]);
+  },
 };
 
 export default AuthService;

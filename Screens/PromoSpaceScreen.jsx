@@ -330,32 +330,28 @@ const MediaPicker = ({ files, onAdd, onRemove, C }) => {
   const isWeb = Platform.OS === "web";
   const fmtSize = b => b < 1024*1024 ? `${(b/1024).toFixed(0)}KB` : `${(b/(1024*1024)).toFixed(1)}MB`;
 
-  const pickMedia = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Required", "Please allow access to your photos in Settings.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: false,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets?.length > 0) {
-      const picked = result.assets[0];
-      // use picked.uri for the file
-      setSelectedMedia(picked);
-    }
-  };
-  
   
 
   const pickMobile = async () => {
     try {
-      const { launchImageLibraryAsync, MediaTypeOptions } = await import("expo-image-picker");
-      const r = await launchImageLibraryAsync({ mediaTypes:MediaTypeOptions.All, allowsMultipleSelection:true, quality:0.85 });
-      if (!r.canceled && r.assets?.length) onAdd(r.assets.map(a => ({ uri:a.uri, name:a.fileName||`media_${Date.now()}`, type:a.type==="video"?"video/mp4":"image/jpeg", size:a.fileSize||0, isVideo:a.type==="video" })));
-    } catch { Alert.alert("Not available","Media picker unavailable."); }
+      // No permission request needed — system picker handles it
+      const r = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsMultipleSelection: true,
+        quality: 0.85,
+      });
+      if (!r.canceled && r.assets?.length) {
+        onAdd(r.assets.map(a => ({
+          uri:     a.uri,
+          name:    a.fileName || `media_${Date.now()}`,
+          type:    a.type === "video" ? "video/mp4" : "image/jpeg",
+          size:    a.fileSize || 0,
+          isVideo: a.type === "video",
+        })));
+      }
+    } catch {
+      Alert.alert("Not available", "Media picker unavailable.");
+    }
   };
 
   return (
@@ -384,7 +380,7 @@ const MediaPicker = ({ files, onAdd, onRemove, C }) => {
       )}
       <TouchableOpacity
         style={{ backgroundColor:C.card, borderRadius:14, borderWidth:2, borderColor:C.border, borderStyle:"dashed", padding:files.length?14:22, flexDirection:"row", alignItems:"center", justifyContent:"center", gap:10 }}
-        onPress={isWeb ? pickWeb : pickMobile} activeOpacity={0.8}>
+        onPress={pickMobile}>
         <I.Img s={files.length?16:24} c={C.slate}/>
         <I.Vid s={files.length?14:20} c={C.slate}/>
         <View>
