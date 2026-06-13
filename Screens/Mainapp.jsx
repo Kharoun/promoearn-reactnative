@@ -78,12 +78,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "Request Withdrawal", submitting: "Submitting...",
     howWithdrawalsWork: "How Withdrawals Work", feesInfo: "Fees, conversion rate & payout info",
     withdrawalFeeNotice: "Withdrawal Fee Notice",
-    withdrawalFeeDetail: "A flat $0.07 processing fee is deducted from every withdrawal.",
+    withdrawalFeeDetail: "A flat $0.13 processing fee is deducted from every withdrawal.",
     dollarConversion: "Dollar Conversion Rate",
     dollarConversionDetail: "All balances shown in US Dollars. When we send your payout to a Local bank account, we convert at",
     stepByStep: "Step-by-Step Process",
     step1Title: "Request Withdrawal", step1Desc: "Enter your amount (min $3.50), bank name and account number.",
-    step2Title: "$0.07 Fee Deducted", step2Desc: "A $0.07 processing fee is taken from your requested amount.",
+    step2Title: "$0.13 Fee Deducted", step2Desc: "A $0.13 processing fee is taken from your requested amount.",
     step3Title: "We Convert to Naira", step3Desc: "The remaining balance is converted at $1 = ₦1,500.",
     step4Title: "Payout Within 24hrs", step4Desc: "Funds are sent directly to your Local bank account account.",
     youWithdraw: "You withdraw", processingFee: "Processing fee",
@@ -149,12 +149,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "Beere Yiyọ Owo", submitting: "Firanṣẹ...",
     howWithdrawalsWork: "Bii Yiyọ Owo Ṣe N Ṣiṣẹ", feesInfo: "Awọn owo, oṣuwọn, ati alaye sisanwo",
     withdrawalFeeNotice: "Akiyesi Owo Yiyọ",
-    withdrawalFeeDetail: "Owo sisẹ $0.07 ni a yọ kuro ninu gbogbo yiyọ.",
+    withdrawalFeeDetail: "Owo sisẹ $0.13 ni a yọ kuro ninu gbogbo yiyọ.",
     dollarConversion: "Oṣuwọn Iyipada Dọla",
     dollarConversionDetail: "Gbogbo iye ni a fihan ni Dọla Amẹrika. A ṣe iyipada si",
     stepByStep: "Ilana Igbesẹ-Nipasẹ-Igbesẹ",
     step1Title: "Beere Yiyọ Owo", step1Desc: "Tẹ iye rẹ (o kere $3.50), orukọ banki ati nọmba akọọlẹ.",
-    step2Title: "Owo $0.07 Yọ", step2Desc: "Owo sisẹ $0.07 ni a gba lati iye ti o beere.",
+    step2Title: "Owo $0.13 Yọ", step2Desc: "Owo sisẹ $0.13 ni a gba lati iye ti o beere.",
     step3Title: "A Ṣe Iyipada si Naira", step3Desc: "Iyokù ni a ṣe iyipada ni $1 = ₦1,500.",
     step4Title: "Sisanwo Laarin 24hrs", step4Desc: "Owo ranṣẹ si akọọlẹ banki Naijiriya rẹ taara.",
     youWithdraw: "O Yọ", processingFee: "Owo Sisẹ",
@@ -213,12 +213,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "Nemi Cirewa", submitting: "Ana Aika...",
     howWithdrawalsWork: "Yadda Cirewa ke Aiki", feesInfo: "Kuɗi, darajar musanya, da bayanin biyan kuɗi",
     withdrawalFeeNotice: "Sanarwar Kuɗin Cirewa",
-    withdrawalFeeDetail: "Ana cire kuɗin sarrafa $0.07 daga kowane cirewa.",
+    withdrawalFeeDetail: "Ana cire kuɗin sarrafa $0.13 daga kowane cirewa.",
     dollarConversion: "Darajar Canza Dala",
     dollarConversionDetail: "Duk ma'auni ana nuna su a Dalolin Amurka. Muna canza zuwa",
     stepByStep: "Tsarin Mataki-da-Mataki",
     step1Title: "Nemi Cirewa", step1Desc: "Shigar da adadi (mafi ƙaranci $3.50), sunan banki da lambar asusun.",
-    step2Title: "An Cire $1.00", step2Desc: "Ana ɗaukar kuɗin sarrafa $0.07 daga adadin da ka nema.",
+    step2Title: "An Cire $1.00", step2Desc: "Ana ɗaukar kuɗin sarrafa $0.13 daga adadin da ka nema.",
     step3Title: "Muna Canza zuwa Naira", step3Desc: "Sauran ana canza shi a $1 = ₦1,500.",
     step4Title: "Biyan Kuɗi a cikin 24hrs", step4Desc: "Ana aika kuɗi kai tsaye zuwa asusun bankin Najeriya naka.",
     youWithdraw: "Kana Cirewa", processingFee: "Kuɗin Sarrafawa",
@@ -278,12 +278,12 @@ const TRANSLATIONS = {
     howWithdrawalsWork: "Otu Iwepụ Ego Si Arụ Ọrụ", feesInput: "Ụgwọ, ọnụ ahịa mgbanwe, na ozi ịkwụ ụgwọ",
     feesInfo: "Ụgwọ, ọnụ ahịa mgbanwe, na ozi ịkwụ ụgwọ",
     withdrawalFeeNotice: "Ọkwa Ụgwọ Iwepụ",
-    withdrawalFeeDetail: "A na-ewepụ ụgwọ nhazi $0.07 sitere na iwepụ niile.",
+    withdrawalFeeDetail: "A na-ewepụ ụgwọ nhazi $0.13 sitere na iwepụ niile.",
     dollarConversion: "Ọnụ Ahịa Mgbanwe Dollar",
     dollarConversionDetail: "E gosipụtara ọnụọgụ niile na Dollar America. Anyị na-agbanwe zuoputara",
     stepByStep: "Usoro Nzọụkwụ-Ka-Nzọụkwụ",
     step1Title: "Arịọ Iwepụ Ego", step1Desc: "Tinye ego gị (kacha ọchie $3.50), aha ụlọ akụ na nọmba akaụntụ.",
-    step2Title: "A Wepụrụ $1.00", step2Desc: "A na-ewepụ ụgwọ nhazi $0.07 sitere n'ego i rịọrọ.",
+    step2Title: "A Wepụrụ $1.00", step2Desc: "A na-ewepụ ụgwọ nhazi $0.13 sitere n'ego i rịọrọ.",
     step3Title: "Anyị Na-agbanwe zuoputara Naira", step3Desc: "A na-agbanwe ihe fọdụrụ na $1 = ₦1,500.",
     step4Title: "Ịkwụ Ụgwọ n'ime 24hrs", step4Desc: "A na-eziga ego ozugbo n'akaụntụ ụlọ akụ Nigeria gị.",
     youWithdraw: "Ị Na-ewepụ", processingFee: "Ụgwọ Nhazi",
@@ -342,12 +342,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "Demander un Retrait", submitting: "Envoi en cours...",
     howWithdrawalsWork: "Comment Fonctionnent les Retraits", feesInfo: "Frais, taux de conversion et infos de paiement",
     withdrawalFeeNotice: "Avis de Frais de Retrait",
-    withdrawalFeeDetail: "Des frais de traitement fixes de $0.07 sont déduits de chaque retrait.",
+    withdrawalFeeDetail: "Des frais de traitement fixes de $0.13 sont déduits de chaque retrait.",
     dollarConversion: "Taux de Conversion du Dollar",
     dollarConversionDetail: "Tous les soldes sont affichés en Dollars US. Nous convertissons à",
     stepByStep: "Processus Étape par Étape",
     step1Title: "Demander un Retrait", step1Desc: "Entrez votre montant (min $3.50), nom de banque et numéro de compte.",
-    step2Title: "Frais $1.00 Déduits", step2Desc: "Des frais de traitement de $0.07 sont prélevés sur votre montant demandé.",
+    step2Title: "Frais $1.00 Déduits", step2Desc: "Des frais de traitement de $0.13 sont prélevés sur votre montant demandé.",
     step3Title: "Nous Convertissons en Naira", step3Desc: "Le solde restant est converti à $1 = ₦1,500.",
     step4Title: "Paiement sous 24–48h", step4Desc: "Les fonds sont envoyés directement à votre compte bancaire nigérian.",
     youWithdraw: "Vous retirez", processingFee: "Frais de traitement",
@@ -406,12 +406,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "طلب سحب", submitting: "جار الإرسال...",
     howWithdrawalsWork: "كيف تعمل عمليات السحب", feesInfo: "الرسوم وسعر الصرف ومعلومات الدفع",
     withdrawalFeeNotice: "إشعار رسوم السحب",
-    withdrawalFeeDetail: "يتم خصم رسوم معالجة ثابتة قدرها $0.07 من كل عملية سحب.",
+    withdrawalFeeDetail: "يتم خصم رسوم معالجة ثابتة قدرها $0.13 من كل عملية سحب.",
     dollarConversion: "سعر تحويل الدولار",
     dollarConversionDetail: "تُعرض جميع الأرصدة بالدولار الأمريكي. نحن نحول بسعر",
     stepByStep: "العملية خطوة بخطوة",
     step1Title: "طلب السحب", step1Desc: "أدخل مبلغك (الحد الأدنى $3.50) واسم البنك ورقم الحساب.",
-    step2Title: "خصم $1.00", step2Desc: "يتم أخذ رسوم معالجة بقيمة $0.07 من مبلغك المطلوب.",
+    step2Title: "خصم $1.00", step2Desc: "يتم أخذ رسوم معالجة بقيمة $0.13 من مبلغك المطلوب.",
     step3Title: "نحوّل إلى نايرا", step3Desc: "يُحوَّل الرصيد المتبقي بسعر $1 = ₦1,500.",
     step4Title: "الدفع خلال 24–48 ساعة", step4Desc: "يُرسَل المال مباشرة إلى حسابك المصرفي النيجيري.",
     youWithdraw: "تسحب", processingFee: "رسوم المعالجة",
@@ -470,12 +470,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "Solicitar Saque", submitting: "Enviando...",
     howWithdrawalsWork: "Como Funcionam os Saques", feesInfo: "Taxas, taxa de câmbio e info de pagamento",
     withdrawalFeeNotice: "Aviso de Taxa de Saque",
-    withdrawalFeeDetail: "Uma taxa de processamento de $0.07 é deduzida de cada saque.",
+    withdrawalFeeDetail: "Uma taxa de processamento de $0.13 é deduzida de cada saque.",
     dollarConversion: "Taxa de Conversão do Dólar",
     dollarConversionDetail: "Todos os saldos são mostrados em Dólares Americanos. Convertemos a",
     stepByStep: "Processo Passo a Passo",
     step1Title: "Solicitar Saque", step1Desc: "Insira seu valor (mín $3.50), nome do banco e número da conta.",
-    step2Title: "Taxa $1.00 Deduzida", step2Desc: "Uma taxa de processamento de $0.07 é retirada do valor solicitado.",
+    step2Title: "Taxa $1.00 Deduzida", step2Desc: "Uma taxa de processamento de $0.13 é retirada do valor solicitado.",
     step3Title: "Convertemos para Naira", step3Desc: "O saldo restante é convertido a $1 = ₦1,500.",
     step4Title: "Pagamento em 24–48h", step4Desc: "Os fundos são enviados diretamente para sua conta bancária nigeriana.",
     youWithdraw: "Você saca", processingFee: "Taxa de processamento",
@@ -534,12 +534,12 @@ const TRANSLATIONS = {
     requestWithdrawal: "Solicitar Retiro", submitting: "Enviando...",
     howWithdrawalsWork: "Cómo Funcionan los Retiros", feesInfo: "Comisiones, tasa de conversión e info de pago",
     withdrawalFeeNotice: "Aviso de Comisión de Retiro",
-    withdrawalFeeDetail: "Se deduce una comisión fija de procesamiento de $0.07 de cada retiro.",
+    withdrawalFeeDetail: "Se deduce una comisión fija de procesamiento de $0.13 de cada retiro.",
     dollarConversion: "Tasa de Conversión del Dólar",
     dollarConversionDetail: "Todos los saldos se muestran en Dólares Americanos. Convertimos a",
     stepByStep: "Proceso Paso a Paso",
     step1Title: "Solicitar Retiro", step1Desc: "Ingresa tu monto (mín $3.50), nombre del banco y número de cuenta.",
-    step2Title: "Comisión $1.00 Deducida", step2Desc: "Se toma una comisión de procesamiento de $0.07 de tu monto solicitado.",
+    step2Title: "Comisión $1.00 Deducida", step2Desc: "Se toma una comisión de procesamiento de $0.13 de tu monto solicitado.",
     step3Title: "Convertimos a Naira", step3Desc: "El saldo restante se convierte a $1 = ₦1,500.",
     step4Title: "Pago en 24–48h", step4Desc: "Los fondos se envían directamente a tu cuenta bancaria nigeriana.",
     youWithdraw: "Tú retiras", processingFee: "Comisión de procesamiento",
@@ -1614,7 +1614,7 @@ const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
                 <Text style={[sm.summaryVal, { color: row.color }]}>{row.val}</Text>
               </View>
             ))}
-            <View style={[sm.summaryRow, {
+            {/* <View style={[sm.summaryRow, {
               borderTopWidth: 1, borderTopColor: "#E2E8F0",
               marginTop: 10, paddingTop: 10,
             }]}>
@@ -1622,7 +1622,7 @@ const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
                 Min. Withdrawal
               </Text>
               <Text style={[sm.summaryVal, { color: "#1A56DB" }]}>$3.50.00</Text>
-            </View>
+            </View> */}
  
             {error && (
               <View style={sm.errorBox}>
@@ -2356,7 +2356,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const [pinMode,        setPinMode]        = useState("setup");
   const [showPin,        setShowPin]        = useState(true);
 
-  const WITHDRAWAL_FEE =100 / 1500;  // ₦100 = $0.07
+  const WITHDRAWAL_FEE = 200 / 1500;  // ₦200 = ~$0.13
   const NGN_RATE       = 1500;
   const withdrawAmt    = parseFloat(amount) || 0;
   const youReceive     = withdrawAmt > 0 ? Math.max(0, withdrawAmt - WITHDRAWAL_FEE) : 0;
@@ -3301,7 +3301,7 @@ function ProfileScreen({ user, onUpgrade, onLogout, onHelp, balanceHidden, C, la
   const FAQ_ITEMS = [
     { q:"How do I earn money?",                a:"Complete tasks in the PromoSpace tab. Each task shows how much you earn. Tap Start, do the task, then tap Done to claim your reward." },
     { q:"When do I get paid?",                 a:"Withdrawal requests are processed within 24 hours. Funds are sent directly to your Local bank account account." },
-    { q:"What is the withdrawal fee?",         a:"There is a flat $0.07 processing fee deducted from every withdrawal. For example, withdrawing $5.00 gives you $4.00 in your bank." },
+    { q:"What is the withdrawal fee?",         a:"There is a flat $0.13 processing fee deducted from every withdrawal. For example, withdrawing $5.00 gives you $4.87 in your bank." },
     { q:"What is the conversion rate?",        a:"We convert your USD balance to Naira at a fixed rate of $1 = ₦1,500. All balances in the app are shown in US Dollars." },
     { q:"How does the referral program work?", a:"Share your referral code. When a friend signs up and activates their account, you earn a $1.33 bonus instantly." },
     { q:"Why is my account locked?",           a:"You need to activate your account with a one-time $3.00 fee to access all tasks and features. Tap 'Activate Account' to get started." },
