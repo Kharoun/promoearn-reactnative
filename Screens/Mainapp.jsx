@@ -15,10 +15,11 @@ import PayoutMethodsScreen   from "./PayoutMethodsscreen";
 import NotificationsScreen   from "./NotificationsScreen";
 import AccountSettingsScreen from "./AccountSettingsScreen";
 import { useState, useEffect, useCallback } from "react";
+// import { Clipboard } from "react-native";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Dimensions, TextInput, Modal, Platform, Alert, RefreshControl,
-  ActivityIndicator, Linking,
+  ActivityIndicator, Linking, 
 } from "react-native";
 import Svg, { Path, Circle, Rect, Line, Polyline, G } from "react-native-svg";
 import { WebView } from "react-native-webview";
@@ -1244,410 +1245,182 @@ const pm = StyleSheet.create({
 // Replace your entire PaystackModal component with this version.
 // Works on BOTH web (opens in browser tab) and mobile (uses WebView).
 
+// ── Manual Bank Transfer Modal ──────────────────────────────────────────────
+// ── Manual Bank Transfer Modal ──────────────────────────────────────────────
+// REPLACE the entire PaystackModal component in MainApp.jsx with this.
 const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState(null);
-  const [reference,  setReference]  = useState(null);
-  const [verifying,  setVerifying]  = useState(false);
- 
-  const isWeb = Platform.OS === "web";
- 
-  // Reset when modal closes
+  const [step,        setStep]        = useState("info");
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState(null);
+  const [senderName,  setSenderName]  = useState("");
+
   useEffect(() => {
-    if (!visible) {
-      setLoading(false);
-      setError(null);
-      setPaymentUrl(null);
-      setReference(null);
-      setVerifying(false);
-    }
+    if (!visible) { setStep("info"); setError(null); setSubmitting(false); setSenderName(""); }
   }, [visible]);
- 
-  // ── On web: poll every 2s to see if user came back after paying ────────
-  // Works with ngrok — when Paystack redirects to /payment-success?reference=xxx
-  // that page stores the ref in localStorage then closes itself.
-  useEffect(() => {
-    if (!isWeb || !paymentUrl || !reference) return;
- 
-    const interval = setInterval(() => {
-      try {
-        const done = localStorage.getItem("pe_payment_done");
-        if (done === reference) {
-          clearInterval(interval);
-          localStorage.removeItem("pe_payment_done");
-          verifyAndActivate(reference);
-        }
-      } catch {}
-    }, 2000);
- 
-    return () => clearInterval(interval);
-  }, [paymentUrl, reference]);
- 
-  // ── Step 1: Call backend to get Paystack URL ───────────────────────────
-  const handlePay = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await AuthService.getToken();
-      if (!token) {
-        setError("Session expired. Please log out and log back in.");
-        return;
-      }
- 
-      const res = await fetch(`${BASE_URL}/payments/create-checkout`, {
-        method:  "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization:  `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userId: user.uid, email: user.email }),
-      });
- 
-      const data = await res.json();
- 
-      if (!data.success || !data.url) {
-        setError(data.message || "Could not start payment. Please try again.");
-        return;
-      }
- 
-      // Save reference so we can verify later
-      setReference(data.reference);
-      try { localStorage.setItem("pe_payment_ref", data.reference); } catch {}
- 
-      if (isWeb) {
-        // Open Paystack in a new tab — stay on this screen to verify
-        window.open(data.url, "_blank");
-        setPaymentUrl(data.url);
-      } else {
-        setPaymentUrl(data.url);
-      }
-    } catch {
-      setError("Network error. Check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
+
+  const BANK = {
+    name:    "Sterling Bank",
+    account: "0144524670",
+    holder:  "PROMO EARN DIGITAL HUB",
+    amount:  "₦4,500",
   };
- 
-  // ── Step 2: Verify with backend and activate ───────────────────────────
-  const verifyAndActivate = async (ref) => {
-    if (verifying) return;
-    setVerifying(true);
-    setError(null);
- 
-    const refToUse = ref || reference;
-    if (!refToUse) {
-      setError("Payment reference missing. If you paid, contact contact.promoearn@gmail.com");
-      setVerifying(false);
+
+  const handleSubmit = async () => {
+    if (!senderName.trim()) {
+      setError("Please enter the sender's name before submitting.");
       return;
     }
- 
+    setSubmitting(true); setError(null);
     try {
       const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/payments/verify-payment`, {
+      const res = await fetch(`${BASE_URL}/payments/manual-activation`, {
         method:  "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization:  `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reference: refToUse }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ userId: user?.uid, email: user?.email, senderName: senderName.trim() }),
       });
- 
       const data = await res.json();
- 
-      if (data.success || data.message?.includes("already activated")) {
-        try { await AsyncStorage.removeItem("pe_payment_ref"); } catch {}
-        setPaymentUrl(null);
-        // ← This calls onPaid() in MainApp which calls fetchUser() + shows success
-        onSuccess();
+      if (data.success) {
+        setStep("submitted");
       } else {
-        setError(data.message || "Payment not confirmed yet. Please wait a moment and try again.");
+        setError(data.message || "Submission failed. Please try again.");
       }
     } catch {
-      setError("Verification failed. If you paid, tap the button again or contact support.");
+      setError("Network error. Please check your connection.");
     } finally {
-      setVerifying(false);
+      setSubmitting(false);
     }
   };
- 
-  // ── Mobile: WebView nav watcher ────────────────────────────────────────
-  const handleWebViewNav = async (navState) => {
-    const url = navState.url || "";
-    const isComplete =
-      url.includes("/payment-success") ||
-      url.includes("paystack.com/close") ||
-      url.includes("standard.paystack.com/close");
- 
-    if (isComplete) {
-      // Try to grab reference from redirect URL params
-      try {
-        const parsed = new URL(url);
-        const urlRef =
-          parsed.searchParams.get("reference") ||
-          parsed.searchParams.get("trxref");
-          if (urlRef) {
-            setReference(urlRef);
-            try { await AsyncStorage.setItem("pe_payment_ref", urlRef); } catch {}
-            await verifyAndActivate(urlRef);
-          return;
-        }
-      } catch {}
-      // Fallback to stored reference
-      await verifyAndActivate(reference);
-    }
-  };
- 
-  // ── WEB: Waiting screen after Paystack tab opened ──────────────────────
-  if (isWeb && paymentUrl) {
-    return (
-      <Modal visible={true} animationType="slide" transparent>
-        <View style={sm.overlay}>
-          <View style={sm.sheet}>
-            <View style={sm.handle} />
- 
-            {/* Header */}
-            <View style={sm.header}>
-              <View>
-                <Text style={sm.title}>
-                  {verifying ? "Activating your account..." : "Complete Your Payment"}
-                </Text>
-                <Text style={sm.sub}>
-                  {verifying ? "Please wait a moment" : "Paystack opened in a new tab"}
-                </Text>
-              </View>
-              {!verifying && (
-                <TouchableOpacity
-                  style={sm.closeBtn}
-                  onPress={() => { setPaymentUrl(null); setError(null); }}
-                  activeOpacity={0.7}>
-                  <Text style={{ fontSize: 18, color: "#64748B" }}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
- 
-            <View style={sm.body}>
-              {verifying ? (
-                // ── Verifying state ──
-                <View style={{ alignItems: "center", paddingVertical: 32 }}>
-                  <ActivityIndicator color="#1A56DB" size="large" />
-                  <Text style={{
-                    marginTop: 16, color: "#0F172A",
-                    fontFamily: fonts.bold, fontSize: 16, textAlign: "center",
-                  }}>
-                    Verifying your payment...
-                  </Text>
-                  <Text style={{
-                    marginTop: 8, color: "#64748B",
-                    fontFamily: fonts.regular, fontSize: 13, textAlign: "center",
-                  }}>
-                    Activating your account and adding your $0.33 welcome bonus
-                  </Text>
-                </View>
-              ) : (
-                // ── Waiting state ──
-                <>
-                  {/* Step instructions */}
-                  <View style={{
-                    backgroundColor: "#EEF4FF", borderRadius: 16, padding: 16,
-                    marginBottom: 20,
-                  }}>
-                    <Text style={{
-                      fontFamily: fonts.bold, fontSize: 14, color: "#0F172A", marginBottom: 10,
-                    }}>
-                      How to complete payment:
-                    </Text>
-                    {[
-                      "Complete the payment in the new tab that just opened",
-                      "Come back to this tab when done",
-                      "Tap the green button below to activate your account",
-                    ].map((step, i) => (
-                      <View key={i} style={{
-                        flexDirection: "row", gap: 10, marginBottom: i < 2 ? 8 : 0,
-                      }}>
-                        <View style={{
-                          width: 22, height: 22, borderRadius: 11,
-                          backgroundColor: "#1A56DB", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <Text style={{
-                            fontFamily: fonts.black, fontSize: 11, color: "#fff",
-                          }}>{i + 1}</Text>
-                        </View>
-                        <Text style={{
-                          flex: 1, fontFamily: fonts.regular, fontSize: 13,
-                          color: "#0F172A", lineHeight: 20,
-                        }}>{step}</Text>
-                      </View>
-                    ))}
-                  </View>
- 
-                  {/* Retry open link */}
-                  <TouchableOpacity
-                    onPress={() => window.open(paymentUrl, "_blank")}
-                    style={{ marginBottom: 16, alignItems: "center" }}
-                    activeOpacity={0.7}>
-                    <Text style={{
-                      fontFamily: fonts.semibold, fontSize: 13, color: "#1A56DB",
-                    }}>
-                      Tab didn't open? Tap here to retry ↗
-                    </Text>
-                  </TouchableOpacity>
- 
-                  {error && (
-                    <View style={sm.errorBox}>
-                      <Text style={sm.errorTxt}>⚠️ {error}</Text>
-                    </View>
-                  )}
- 
-                  {/* Main CTA */}
-                  <TouchableOpacity
-                    style={[sm.payBtn, { backgroundColor: "#10B981" }]}
-                    onPress={() => verifyAndActivate(reference)}
-                    activeOpacity={0.85}>
-                    <Text style={sm.payBtnTxt}>✅  I've completed payment</Text>
-                  </TouchableOpacity>
-                </>
-              )}
- 
-              <Text style={sm.hint}>
-                Secured by Paystack · One-time fee · No recurring charges
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
- 
-  // ── MOBILE: WebView screen ─────────────────────────────────────────────
-  if (!isWeb && paymentUrl) {
-    const { WebView } = require("react-native-webview");
-    return (
-      <Modal visible={true} animationType="slide">
-        <View style={{ flex: 1, backgroundColor: "#fff" }}>
-          <View style={{
-            flexDirection: "row", alignItems: "center",
-            paddingTop: Platform.OS === "ios" ? 56 : 40,
-            paddingHorizontal: 16, paddingBottom: 12,
-            borderBottomWidth: 1, borderBottomColor: "#E2E8F0",
-          }}>
-            <TouchableOpacity
-              onPress={() => { setPaymentUrl(null); setError(null); }}
-              style={{ marginRight: 16 }}
-              activeOpacity={0.7}>
-              <Text style={{ fontSize: 16, color: "#64748B" }}>✕ Cancel</Text>
-            </TouchableOpacity>
-            <Text style={{
-              fontFamily: fonts.bold, fontSize: 16, color: "#0F172A", flex: 1,
-            }}>
-              Secure Payment · Paystack
-            </Text>
-            {verifying && <ActivityIndicator color="#1A56DB" />}
-          </View>
- 
-          <WebView
-            source={{ uri: paymentUrl }}
-            onNavigationStateChange={handleWebViewNav}
-            startInLoadingState
-            renderLoading={() => (
-              <View style={{
-                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-                alignItems: "center", justifyContent: "center", backgroundColor: "#fff",
-              }}>
-                <ActivityIndicator size="large" color="#1A56DB" />
-                <Text style={{ marginTop: 12, color: "#64748B", fontSize: 14 }}>
-                  Loading payment page...
-                </Text>
-              </View>
-            )}
-          />
- 
-          {verifying ? (
-            <View style={{ padding: 20, alignItems: "center" }}>
-              <ActivityIndicator color="#1A56DB" />
-              <Text style={{ marginTop: 8, color: "#64748B", fontSize: 13 }}>
-                Activating your account...
-              </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => verifyAndActivate(reference)}
-              style={{
-                margin: 16, backgroundColor: "#10B981",
-                borderRadius: 14, height: 52,
-                alignItems: "center", justifyContent: "center",
-              }}
-              activeOpacity={0.85}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#fff" }}>
-                ✅  I've completed payment
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </Modal>
-    );
-  }
- 
-  // ── Summary sheet (before payment) ────────────────────────────────────
-  if (!visible) return null;
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={sm.overlay}>
-        <View style={sm.sheet}>
-          <View style={sm.handle} />
-          <View style={sm.header}>
-            <View>
-              <Text style={sm.title}>Activate Account · $3.00</Text>
-              <Text style={sm.sub}>One-time · Secured by Paystack</Text>
-            </View>
-            <TouchableOpacity style={sm.closeBtn} onPress={onClose} activeOpacity={0.7}>
-              <Text style={{ fontSize: 18, color: "#64748B" }}>✕</Text>
-            </TouchableOpacity>
-          </View>
- 
-          <View style={sm.body}>
-            {[
-              { lbl: "Registration Fee",  val: "$3.00",  color: "#0F172A" },
-        
-            ].map((row, i) => (
-              <View key={i} style={sm.summaryRow}>
-                <Text style={sm.summaryLbl}>{row.lbl}</Text>
-                <Text style={[sm.summaryVal, { color: row.color }]}>{row.val}</Text>
-              </View>
-            ))}
-            {/* <View style={[sm.summaryRow, {
-              borderTopWidth: 1, borderTopColor: "#E2E8F0",
-              marginTop: 10, paddingTop: 10,
-            }]}>
-              <Text style={[sm.summaryLbl, { fontFamily: fonts.bold, color: "#0F172A" }]}>
-                Min. Withdrawal
-              </Text>
-              <Text style={[sm.summaryVal, { color: "#1A56DB" }]}>$3.50.00</Text>
-            </View> */}
- 
-            {error && (
-              <View style={sm.errorBox}>
-                <Text style={sm.errorTxt}>⚠️ {error}</Text>
-              </View>
-            )}
- 
-            <TouchableOpacity
-              style={[sm.payBtn, loading && { opacity: 0.7 }]}
-              onPress={handlePay}
-              disabled={loading}
-              activeOpacity={0.85}>
-              <Text style={sm.payBtnTxt}>
-                {loading ? "Opening Paystack..." : "Pay $3.00 with Paystack"}
-              </Text>
-            </TouchableOpacity>
-            <Text style={sm.hint}>
-              Secured by Paystack · One-time fee · No recurring charges
+      <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" }}>
+        <View style={{ backgroundColor:"#FFFFFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom: Platform.OS==="ios" ? 44 : 28, maxHeight:"92%" }}>
+          <View style={{ width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 }}/>
+
+          {/* Header */}
+          <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
+            <Text style={{ fontFamily:fonts.black, fontSize:18, color:"#0F172A" }}>
+              {step === "submitted" ? "✅ Submitted!" : "Activate Account"}
             </Text>
+            <TouchableOpacity onPress={onClose} style={{ width:34, height:34, borderRadius:17, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" }}>
+              <Text style={{ fontSize:18, color:"#64748B" }}>✕</Text>
+            </TouchableOpacity>
           </View>
+
+          <ScrollView contentContainerStyle={{ paddingHorizontal:20, paddingTop:20, paddingBottom:32 }}>
+
+            {step === "submitted" ? (
+              /* ── Success ── */
+              <View style={{ alignItems:"center", paddingVertical:16 }}>
+                <View style={{ width:72, height:72, borderRadius:36, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+                  <Text style={{ fontSize:36 }}>✅</Text>
+                </View>
+                <Text style={{ fontFamily:fonts.bold, fontSize:20, color:"#0F172A", textAlign:"center", marginBottom:8 }}>Payment Submitted!</Text>
+                <Text style={{ fontSize:14, color:"#64748B", textAlign:"center", lineHeight:22, marginBottom:20 }}>
+                  We've received your request.{"\n"}Your account will be activated within{" "}
+                  <Text style={{ fontWeight:"700", color:"#10B981" }}>1–6 hours</Text> once we confirm your transfer.
+                </Text>
+
+                <View style={{ backgroundColor:"#F0FDF4", borderRadius:14, padding:16, width:"100%", marginBottom:20 }}>
+                  {[
+                    "We check transfers manually throughout the day",
+                    "You'll get a notification when activated",
+                    "Contact support if not activated within 6 hours",
+                  ].map((t, i) => (
+                    <View key={i} style={{ flexDirection:"row", gap:10, paddingVertical:6 }}>
+                      <Text style={{ color:"#10B981" }}>✓</Text>
+                      <Text style={{ fontSize:13, color:"#0F172A", flex:1 }}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <TouchableOpacity onPress={onClose}
+                  style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Got it, I'll wait</Text>
+                </TouchableOpacity>
+              </View>
+
+            ) : (
+              /* ── Instructions ── */
+              <>
+                {/* Amount banner */}
+                <View style={{ backgroundColor:"#0F172A", borderRadius:18, padding:20, marginBottom:20, alignItems:"center" }}>
+                  <Text style={{ fontSize:13, color:"rgba(255,255,255,0.6)", marginBottom:4 }}>One-time activation fee</Text>
+                  <Text style={{ fontFamily:fonts.black, fontSize:36, color:"#FFF" }}>₦4,500</Text>
+                  <Text style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4 }}>≈ $3.00 USD · One-time · Never charged again</Text>
+                </View>
+
+                {/* Step 1 — Bank details */}
+                <View style={{ backgroundColor:"#F8FAFF", borderRadius:16, padding:16, marginBottom:14, borderWidth:1.5, borderColor:"#E2E8F0" }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#1A56DB", marginBottom:12 }}>
+                    Step 1 — Transfer ₦4,500 to this account
+                  </Text>
+                  {[
+                    { l: "Bank",           v: BANK.name    },
+                    { l: "Account Number", v: BANK.account },
+                    { l: "Account Name",   v: BANK.holder  },
+                    { l: "Amount",         v: BANK.amount  },
+                  ].map((row, i) => (
+                    <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:8, borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor:"#E2E8F0" }}>
+                      <Text style={{ fontSize:13, color:"#64748B" }}>{row.l}</Text>
+                      <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#0F172A" }}>{row.v}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Step 2 — Sender's name */}
+                <View style={{ backgroundColor:"#EEF4FF", borderRadius:16, padding:16, marginBottom:20, borderWidth:1.5, borderColor:"#C7D7FA" }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#1A56DB", marginBottom:4 }}>
+                    Step 2 — Enter your sender's name
+                  </Text>
+                  <Text style={{ fontSize:12, color:"#4B6CB7", marginBottom:12, lineHeight:18 }}>
+                    Enter the name on the bank account you transferred from. We'll use this to find your payment.
+                  </Text>
+                  <TextInput
+                    value={senderName}
+                    onChangeText={setSenderName}
+                    placeholder="e.g. John Adebayo"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="words"
+                    style={{
+                      backgroundColor:"#FFF", borderRadius:12, borderWidth:1.5,
+                      borderColor: senderName.trim() ? "#1A56DB" : "#E2E8F0",
+                      paddingHorizontal:14, paddingVertical:12,
+                      fontSize:15, color:"#0F172A", fontFamily:fonts.medium,
+                    }}
+                  />
+                  <Text style={{ fontSize:11, color:"#EF4444", marginTop:8, fontWeight:"600" }}>
+                    ⚠️ This field is required — we need it to match your transfer.
+                  </Text>
+                </View>
+
+                {error && (
+                  <View style={{ backgroundColor:"#FEF2F2", borderRadius:12, padding:12, marginBottom:12 }}>
+                    <Text style={{ fontSize:13, color:"#EF4444" }}>⚠️ {error}</Text>
+                  </View>
+                )}
+
+                {/* Submit */}
+                <TouchableOpacity
+                  style={{ backgroundColor: submitting ? "#94A3B8" : "#1A56DB", borderRadius:14, height:54, alignItems:"center", justifyContent:"center" }}
+                  onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
+                  {submitting
+                    ? <ActivityIndicator color="#FFF" />
+                    : <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>✅ I've Transferred — Submit</Text>
+                  }
+                </TouchableOpacity>
+                <Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:10 }}>
+                  Activation takes 1–6 hours · contact.promoearn@gmail.com for support
+                </Text>
+              </>
+            )}
+          </ScrollView>
         </View>
       </View>
     </Modal>
   );
 };
+
 
 const sm = StyleSheet.create({
   overlay:    { flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" },
@@ -2348,7 +2121,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const [selectedBank,   setSelectedBank]   = useState(null);
   const [accountNumber,  setAccountNumber]  = useState("");
   const [accountName,    setAccountName]    = useState("");
-  const [verifying,      setVerifying]      = useState(false);
+
 
   const [amount,         setAmount]         = useState("");
   const [submitting,     setSubmitting]     = useState(false);
@@ -2412,40 +2185,12 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
     setStep("form");
   };
 
-  // Auto-verify when 10 digits + bank selected (manual mode only)
-  useEffect(() => {
-    if (selectedSaved) return; // skip — already have account name from saved
-    if (accountNumber.length === 10 && selectedBank?.code) {
-      handleVerifyAccount();
-    } else {
-      setAccountName("");
-    }
-  }, [accountNumber, selectedBank]);
-
-  const handleVerifyAccount = async () => {
-    setVerifying(true); setError(""); setAccountName("");
-    try {
-      const res = await api("/payments/verify-account", {
-        method: "POST",
-        body:   { accountNumber, bankCode: selectedBank.code },
-      });
-      if (res.success) {
-        setAccountName(res.data.accountName);
-      } else {
-        setError(res.message || "Account not found. Check the details.");
-      }
-    } catch {
-      setError("Verification failed. Please try again.");
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   const handleSubmit = async () => {
     setError("");
     const amt = parseFloat(amount);
     if (!amt || amt < 3.50)            { setError("Minimum withdrawal is $3.50."); return; }
-    if (!accountName)                  { setError("Please verify your account first."); return; }
+    if (!accountName)                  { setError("Please enter your account name."); return; }
     if ((user?.balance || 0) < amt)    { setError("Insufficient balance."); return; }
 
     setSubmitting(true);
@@ -2625,15 +2370,11 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
             <Text style={{ color: C.muted }}>▼</Text>
           </TouchableOpacity>
 
-          {/* Account Number */}
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                   {/* Account Number */}
+                   <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
             Account Number
           </Text>
-          <View style={[{
-            flexDirection: "row", alignItems: "center", backgroundColor: C.input,
-            borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, height: 52, marginBottom: 6,
-            borderColor: accountName ? C.green : verifying ? C.blue : C.border,
-          }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, height: 52, marginBottom: 14, borderColor: C.border }}>
             <TextInput
               style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: C.dark }}
               placeholder="10-digit account number"
@@ -2643,11 +2384,25 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
               value={accountNumber}
               onChangeText={v => { setAccountNumber(v.replace(/\D/g, "")); setAccountName(""); setError(""); }}
             />
-            {verifying && <ActivityIndicator size="small" color={C.blue} />}
-            {accountName ? <Text style={{ fontSize: 16 }}>✅</Text> : null}
+          </View>
+
+          {/* Account Name — typed manually */}
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            Account Name
+          </Text>
+          <View style={{ backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, height: 52, marginBottom: 6, borderColor: accountName ? C.green : C.border, justifyContent: "center" }}>
+            <TextInput
+              style={{ fontFamily: fonts.medium, fontSize: 15, color: C.dark }}
+              placeholder="Enter your account name"
+              placeholderTextColor={C.slate}
+              autoCapitalize="words"
+              value={accountName}
+              onChangeText={v => { setAccountName(v); setError(""); }}
+            />
           </View>
         </>
       )}
+      
 
       {/* Account name confirmation row */}
       {accountName ? (
@@ -2657,11 +2412,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
         </View>
       ) : null}
 
-      {!accountName && !selectedSaved && accountNumber.length === 10 && !verifying ? (
-        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: C.red, marginBottom: 10 }}>
-          Account not found. Check your number and bank.
-        </Text>
-      ) : null}
+     
 
       {/* ── AMOUNT ─────────────────────────────────────────────────────────── */}
       <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: 4 }}>
@@ -3116,7 +2867,7 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
     try {
       const { Share } = require("react-native");
       await Share.share({
-        message: `Join PromoEarn and earn real money! Use my referral code: ${user?.referralCode || user?.username}\n\nDownload the app: https://expo.dev/artifacts/eas/YOUR-BUILD-ID.apk?ref=${user?.referralCode || user?.username}`,
+        message: `Join PromoEarn and earn real money! Use my referral code: ${user?.referralCode || user?.username}\n\nDownload the app: https://play.google.com/store/apps/details?id=com.promoearn.app&referral=${user?.referralCode || user?.username}`,
         title: "Join PromoEarn",
       });
     } catch (err) {
@@ -3291,7 +3042,7 @@ function ProfileScreen({ user, onUpgrade, onLogout, onHelp, balanceHidden, C, la
       try {
         const { Share } = require("react-native");
         await Share.share({
-          message: `Join PromoEarn and earn real money! Use my referral code: ${user?.referralCode || user?.username}\n\nDownload the app: https://expo.dev/artifacts/eas/YOUR-BUILD-ID.apk?ref=${user?.referralCode || user?.username}`,
+          message: `Join PromoEarn and earn real money! Use my referral code: ${user?.referralCode || user?.username}\n\nDownload the app: https://play.google.com/store/apps/details?id=com.promoearn.app&referral=${user?.referralCode || user?.username}`,
           title: "PromoEarn",
         });
       } catch {}
