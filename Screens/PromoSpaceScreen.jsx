@@ -415,294 +415,34 @@ const Field = ({ label, placeholder, value, onChange, numeric, icon, multi, hint
 // On web: opens Paystack in a new tab, polls localStorage for completion.
 // On mobile: shows WebView.
 // ══════════════════════════════════════════════════════════════════════════
-function CampaignPaymentModal({ visible, campaignId, quote, email, userId, onSuccess, onClose, C }) {
-  const [loading,    setLoading]    = useState(false);
-  const [verifying,  setVerifying]  = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState(null);
-  const [reference,  setReference]  = useState(null);
-  const [error,      setError]      = useState(null);
-  const isWeb = Platform.OS === "web";
 
-  // Reset when modal closes
-  useEffect(() => {
-    if (!visible) {
-      setLoading(false); setVerifying(false);
-      setPaymentUrl(null); setReference(null); setError(null);
-    }
-  }, [visible]);
-
-  // Web: poll localStorage for payment completion
-  useEffect(() => {
-    if (!isWeb || !paymentUrl || !reference) return;
-    const interval = setInterval(() => {
-      try {
-        const done = localStorage.getItem("pe_campaign_payment_done");
-        if (done === reference) {
-          clearInterval(interval);
-          localStorage.removeItem("pe_campaign_payment_done");
-          verifyPayment(reference);
-        }
-      } catch {}
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [paymentUrl, reference]);
-
-  // Step 1: create payment link
-  const handlePay = async () => {
-    setLoading(true); setError(null);
-    try {
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/campaigns/create-payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ campaignId, amount: quote?.total, email, userId }),
-      });
-      const data = await res.json();
-      if (!data.success || !data.data?.url) {
-        setError(data.message || "Could not start payment. Try again.");
-        return;
-      }
-      setReference(data.data.reference);
-      try { localStorage.setItem("pe_campaign_ref", data.data.reference); localStorage.setItem("pe_campaign_id", campaignId); } catch {}
-
-      if (isWeb) {
-        window.open(data.data.url, "_blank");
-        setPaymentUrl(data.data.url);
-      } else {
-        setPaymentUrl(data.data.url);
-      }
-    } catch {
-      setError("Network error. Check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 2: verify
-  const verifyPayment = async (ref) => {
-    if (verifying) return;
-    setVerifying(true); setError(null);
-    const refToUse = ref || reference;
-    try {
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/campaigns/verify-payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reference: refToUse, campaignId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        try { localStorage.removeItem("pe_campaign_ref"); localStorage.removeItem("pe_campaign_id"); } catch {}
-        setPaymentUrl(null);
-        onSuccess();
-      } else {
-        setError(data.message || "Payment not confirmed yet. Wait a moment and try again.");
-      }
-    } catch {
-      setError("Verification failed. If you paid, tap the button again or contact support.");
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  // Mobile: watch WebView navigation
-  const handleWebViewNav = async (navState) => {
-    const url = navState.url || "";
-    const isComplete = url.includes("/payment-success") || url.includes("paystack.com/close") || url.includes("standard.paystack.com/close");
-    if (isComplete) {
-      try {
-        const parsed = new URL(url);
-        const urlRef = parsed.searchParams.get("reference") || parsed.searchParams.get("trxref");
-        if (urlRef) { setReference(urlRef); await verifyPayment(urlRef); return; }
-      } catch {}
-      await verifyPayment(reference);
-    }
-  };
-
-  // ── Web: waiting screen after tab opened ──────────────────────────────
-  if (isWeb && paymentUrl) {
-    return (
-      <Modal visible animationType="slide" transparent>
-        <View style={CPM.overlay}>
-          <View style={CPM.sheet}>
-            <View style={CPM.handle}/>
-            <View style={CPM.header}>
-              <View>
-                <Text style={CPM.title}>{verifying ? "Activating your campaign…" : "Complete Payment"}</Text>
-                <Text style={CPM.sub}>{verifying ? "Please wait" : "Paystack opened in a new tab"}</Text>
-              </View>
-              {!verifying && (
-                <TouchableOpacity style={CPM.closeBtn} onPress={() => { setPaymentUrl(null); setError(null); }} activeOpacity={0.7}>
-                  <Text style={{ fontSize:18, color:"#64748B" }}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={{ padding:20 }}>
-              {verifying ? (
-                <View style={{ alignItems:"center", paddingVertical:28 }}>
-                  <ActivityIndicator color={C.blue} size="large"/>
-                  <Text style={{ marginTop:14, fontFamily:fonts.bold, fontSize:15, color:C.dark, textAlign:"center" }}>Verifying your payment…</Text>
-                  <Text style={{ marginTop:6, fontSize:13, color:C.muted, textAlign:"center" }}>Marking your campaign as paid</Text>
-                </View>
-              ) : (
-                <>
-                  <View style={{ backgroundColor:C.blueSoft, borderRadius:14, padding:16, marginBottom:18 }}>
-                    {["Complete payment in the new tab that opened","Come back to this screen when done","Tap the button below to confirm your campaign"].map((s,i) => (
-                      <View key={i} style={{ flexDirection:"row", gap:10, marginBottom:i<2?10:0 }}>
-                        <View style={{ width:22, height:22, borderRadius:11, backgroundColor:C.blue, alignItems:"center", justifyContent:"center" }}>
-                          <Text style={{ fontFamily:fonts.black, fontSize:11, color:"#FFF" }}>{i+1}</Text>
-                        </View>
-                        <Text style={{ flex:1, fontSize:13, color:C.dark, lineHeight:20 }}>{s}</Text>
-                      </View>
-                    ))}
-                  </View>
-                  <TouchableOpacity onPress={() => window.open(paymentUrl,"_blank")} style={{ alignItems:"center", marginBottom:14 }} activeOpacity={0.7}>
-                    <Text style={{ fontFamily:fonts.semibold, fontSize:13, color:C.blue }}>Tab didn't open? Tap here ↗</Text>
-                  </TouchableOpacity>
-                  {error && (
-                    <View style={{ backgroundColor:"#FFF5F5", borderRadius:10, padding:12, marginBottom:14, borderWidth:1, borderColor:"#FECACA" }}>
-                      <Text style={{ fontSize:13, color:C.red, textAlign:"center" }}>⚠️ {error}</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    style={{ backgroundColor:C.green, borderRadius:14, height:52, alignItems:"center", justifyContent:"center" }}
-                    onPress={() => verifyPayment(reference)} activeOpacity={0.85}>
-                    <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>✅  I've completed payment</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-              <Text style={{ fontSize:11, color:C.muted, textAlign:"center", marginTop:14 }}>Secured by Paystack · No recurring charges</Text>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
-  // ── Mobile: WebView ───────────────────────────────────────────────────
-  if (!isWeb && paymentUrl) {
-    const { WebView } = require("react-native-webview");
-    return (
-      <Modal visible animationType="slide">
-        <View style={{ flex:1, backgroundColor:"#FFF" }}>
-          <View style={{ flexDirection:"row", alignItems:"center", paddingTop:Platform.OS==="ios"?56:40, paddingHorizontal:16, paddingBottom:12, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
-            <TouchableOpacity onPress={() => { setPaymentUrl(null); setError(null); }} style={{ marginRight:16 }} activeOpacity={0.7}>
-              <Text style={{ fontSize:16, color:"#64748B" }}>✕ Cancel</Text>
-            </TouchableOpacity>
-            <Text style={{ fontFamily:fonts.bold, fontSize:16, color:"#0F172A", flex:1 }}>Campaign Payment · Paystack</Text>
-            {verifying && <ActivityIndicator color={C.blue}/>}
-          </View>
-          <WebView source={{ uri:paymentUrl }} onNavigationStateChange={handleWebViewNav} startInLoadingState renderLoading={() => (
-            <View style={{ position:"absolute", top:0, left:0, right:0, bottom:0, alignItems:"center", justifyContent:"center", backgroundColor:"#FFF" }}>
-              <ActivityIndicator size="large" color={C.blue}/>
-              <Text style={{ marginTop:12, color:"#64748B", fontSize:14 }}>Loading payment page...</Text>
-            </View>
-          )}/>
-          {verifying ? (
-            <View style={{ padding:20, alignItems:"center" }}>
-              <ActivityIndicator color={C.blue}/>
-              <Text style={{ marginTop:8, color:"#64748B", fontSize:13 }}>Confirming payment…</Text>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => verifyPayment(reference)} style={{ margin:16, backgroundColor:C.green, borderRadius:14, height:52, alignItems:"center", justifyContent:"center" }} activeOpacity={0.85}>
-              <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>✅  I've completed payment</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </Modal>
-    );
-  }
-
-  // ── Summary sheet (before payment starts) ────────────────────────────
-  if (!visible) return null;
-  return (
-    <Modal visible animationType="slide" transparent>
-      <View style={CPM.overlay}>
-        <View style={CPM.sheet}>
-          <View style={CPM.handle}/>
-          <View style={CPM.header}>
-            <View>
-              <Text style={CPM.title}>Confirm & Pay</Text>
-              <Text style={CPM.sub}>One last step to launch your campaign</Text>
-            </View>
-            <TouchableOpacity style={CPM.closeBtn} onPress={onClose} activeOpacity={0.7}>
-              <Text style={{ fontSize:18, color:"#64748B" }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ padding:20 }}>
-            {/* Quote breakdown */}
-            <View style={{ backgroundColor:"#F8FAFF", borderRadius:16, padding:16, marginBottom:16, borderWidth:1, borderColor:"#E2E8F0" }}>
-              {[
-                { lbl:"Campaign total", val:`$${quote?.total?.toFixed(2)}` },
-              ].map((r,i) => (
-                <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:8, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
-                  <Text style={{ fontSize:13, color:r.dim?"#64748B":"#0F172A" }}>{r.lbl}</Text>
-                  <Text style={{ fontFamily:fonts.semibold, fontSize:13, color:r.dim?"#64748B":"#0F172A" }}>{r.val}</Text>
-                </View>
-              ))}
-              <View style={{ flexDirection:"row", justifyContent:"space-between", paddingTop:12 }}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#0F172A" }}>Total Due</Text>
-                <Text style={{ fontFamily:fonts.bold, fontSize:20, color:C.blue }}>${quote?.total?.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            {/* Guarantees */}
-            {[
-              { icon:"🔒", text:"Secured by Paystack — no card details stored" },
-              { icon:"💰", text:"Refundable if campaign is rejected by admin" },
-              { icon:"⚡", text:"Campaign goes live within 24 hours of approval" },
-            ].map((g,i) => (
-              <View key={i} style={{ flexDirection:"row", alignItems:"center", gap:10, marginBottom:10 }}>
-                <Text style={{ fontSize:16 }}>{g.icon}</Text>
-                <Text style={{ fontSize:12, color:"#64748B", flex:1 }}>{g.text}</Text>
-              </View>
-            ))}
-
-            {error && (
-              <View style={{ backgroundColor:"#FFF5F5", borderRadius:10, padding:12, marginBottom:14, borderWidth:1, borderColor:"#FECACA" }}>
-                <Text style={{ fontSize:13, color:C.red, textAlign:"center" }}>⚠️ {error}</Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={{ backgroundColor:"#00C3F7", borderRadius:14, height:54, alignItems:"center", justifyContent:"center", opacity:loading?0.7:1 }}
-              onPress={handlePay} disabled={loading} activeOpacity={0.85}>
-              {loading
-                ? <ActivityIndicator color="#FFF"/>
-                : <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>💳  Pay ${quote?.total?.toFixed(2)} via Paystack</Text>
-              }
-            </TouchableOpacity>
-            <Text style={{ fontSize:11, color:"#64748B", textAlign:"center", marginTop:12 }}>No recurring charges</Text>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const CPM = StyleSheet.create({
-  overlay:  { flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" },
-  sheet:    { backgroundColor:"#FFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom:Platform.OS==="ios"?40:28 },
-  handle:   { width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 },
-  header:   { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" },
-  title:    { fontFamily:fonts.bold, fontSize:17, color:"#0F172A" },
-  sub:      { fontFamily:fonts.regular, fontSize:12, color:"#64748B", marginTop:2 },
-  closeBtn: { width:36, height:36, borderRadius:18, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" },
-});
+// const CPM = StyleSheet.create({
+//   overlay:  { flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" },
+//   sheet:    { backgroundColor:"#FFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom:Platform.OS==="ios"?40:28 },
+//   handle:   { width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 },
+//   header:   { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" },
+//   title:    { fontFamily:fonts.bold, fontSize:17, color:"#0F172A" },
+//   sub:      { fontFamily:fonts.regular, fontSize:12, color:"#64748B", marginTop:2 },
+//   closeBtn: { width:36, height:36, borderRadius:18, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" },
+// });
 
 // ══════════════════════════════════════════════════════════════════════════
 // ADVERTISE SECTION
 // ══════════════════════════════════════════════════════════════════════════
 function AdvertiseSection({ user, C }) {
   const empty = { brandName:"", targetCount:"", slots:"", pageLink:"", description:"", mediaNote:"", contactEmail:user?.email||"" };
-  const [form,       setForm]     = useState(empty);
-  const [step,       setStep]     = useState(1);
-  const [selType,    setSelType]  = useState(null);
-  const [mediaFiles, setMedia]    = useState([]);
-  const [submitting, setSub]      = useState(false);
-  const [showPay,    setShowPay]  = useState(false);
-  const [campaignId, setCId]      = useState(null);
-  const [done,       setDone]     = useState(false);
+  const [form,        setForm]       = useState(empty);
+  const [step,        setStep]       = useState(1);
+  const [selType,     setSelType]    = useState(null);
+  const [mediaFiles,  setMedia]      = useState([]);
+  const [submitting,  setSub]        = useState(false);
+  const [payStep,     setPayStep]    = useState("idle");
+  // "idle" | "bank" | "sending" | "success" | "error"
+  const [campaignId,  setCId]        = useState(null);
+  const [amountNGN,   setAmountNGN]  = useState(0);
+  const [senderName,  setSenderName] = useState("");
+  const [payError,    setPayError]   = useState("");
+  const [done,        setDone]       = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
   const set   = (k,v) => setForm(p => ({...p,[k]:v}));
@@ -727,36 +467,38 @@ function AdvertiseSection({ user, C }) {
     setSub(true);
     try {
       const mediaUrls = await uploadMedia();
-
-      // Build userDisplayName from user object so admin sees real name
       const userDisplayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || user?.email || "Unknown";
-
+  
       const res = await api("/campaigns/submit", {
         method: "POST",
         body: {
-          brandName:       form.brandName,
-          taskType:        selType,
-          targetCount:     parseInt(form.targetCount) || 0,
-          slots:           parseInt(form.slots),
-          pageLink:        form.pageLink,
-          description:     form.description,
-          mediaNote:       form.mediaNote,
-          contactEmail:    form.contactEmail,
+          brandName:     form.brandName,
+          taskType:      selType,
+          targetCount:   parseInt(form.targetCount) || 0,
+          slots:         parseInt(form.slots),
+          pageLink:      form.pageLink,
+          description:   form.description,
+          mediaNote:     form.mediaNote,
+          contactEmail:  form.contactEmail,
           mediaUrls,
-          mediaCount:      mediaFiles.length,
-          quotedTotal:     quote?.total,
-          quotedPerUser:   PRICING[selType] || 0.35,
-          status:          "pending_payment",
-          submittedBy:     user?.uid,
-          userDisplayName, // ← admin sees this in CampaignsScreen
-          userEmail:       user?.email,
-          userUsername:    user?.username,
+          mediaCount:    mediaFiles.length,
+          quotedTotal:   quote?.total,
+          quotedPerUser: PRICING[selType] || 0.35,
+          status:        "pending_payment",
+          submittedBy:   user?.uid,
+          userDisplayName,
+          userEmail:     user?.email,
+          userUsername:  user?.username,
         },
       });
-
+  
       if (res.success) {
+        const NGN_RATE = 1500;
+        const totalNGN = Math.round((quote?.total || 0) * NGN_RATE) + 200;
         setCId(res.data.campaignId);
-        setShowPay(true); // open CampaignPaymentModal instead of navigating away
+        setAmountNGN(totalNGN);
+        setSenderName("");
+        setPayStep("bank"); // ← show bank transfer modal
       } else {
         Alert.alert("Error", res.message || "Submission failed.");
       }
@@ -767,14 +509,37 @@ function AdvertiseSection({ user, C }) {
     }
   };
 
+  const handleConfirmTransfer = async () => {
+    if (!senderName.trim()) {
+      setPayError("Please enter the sender's name before submitting."); return;
+    }
+    setPayStep("sending"); setPayError("");
+    try {
+      const res = await api("/campaigns/manual-payment", {
+        method: "POST",
+        body: { campaignId, senderName: senderName.trim(), amountNGN },
+      });
+      if (res.success) {
+        setPayStep("success");
+      } else {
+        setPayError(res.message || "Submission failed. Please try again.");
+        setPayStep("bank");
+      }
+    } catch {
+      setPayError("Network error. Please check your connection.");
+      setPayStep("bank");
+    }
+  };
+  
   const handlePaymentSuccess = () => {
-    setShowPay(false);
+    setPayStep("idle");
     setDone(true);
   };
 
   const reset = () => {
     setForm(empty); setStep(1); setSelType(null); setMedia([]);
-    setShowPay(false); setDone(false); setCId(null);
+    setPayStep("idle"); setDone(false); setCId(null);
+    setSenderName(""); setAmountNGN(0); setPayError("");
   };
 
   // ── Success screen ────────────────────────────────────────────────────
@@ -784,7 +549,7 @@ function AdvertiseSection({ user, C }) {
       <Text style={{ fontFamily:fonts.black, fontSize:24, color:C.dark, textAlign:"center", marginBottom:8 }}>Campaign Submitted!</Text>
       <View style={{ backgroundColor:C.greenSoft, borderRadius:16, padding:16, width:"100%", marginBottom:24 }}>
         {[
-          { icon:"✅", text:"Payment confirmed via Paystack" },
+          { icon:"✅", text:"Transfer received — we'll verify shortly" },
           { icon:"👀", text:"Our team is reviewing your campaign" },
           { icon:"⚡", text:"Goes live within 24 hours of approval" },
           { icon:"📧", text:`Updates sent to ${form.contactEmail}` },
@@ -1008,16 +773,137 @@ function AdvertiseSection({ user, C }) {
       </ScrollView>
 
       {/* ── Campaign Payment Modal ─────────────────────────────────────── */}
-      <CampaignPaymentModal
-        visible={showPay}
-        campaignId={campaignId}
-        quote={quote}
-        email={form.contactEmail}
-        userId={user?.uid}
-        onSuccess={handlePaymentSuccess}
-        onClose={() => setShowPay(false)}
-        C={C}
-      />
+    {/* ── Bank Transfer Payment Modal ───────────────────────────────── */}
+{payStep !== "idle" && (
+  <Modal visible animationType="slide" transparent>
+    <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" }}>
+      <View style={{ backgroundColor:"#FFFFFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom: Platform.OS==="ios" ? 44 : 28, maxHeight:"92%" }}>
+        <View style={{ width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 }}/>
+
+        <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
+          <Text style={{ fontFamily:fonts.black, fontSize:18, color:"#0F172A" }}>
+            {payStep === "success" ? "✅ Submitted!" : payStep === "sending" ? "Submitting…" : "Pay for Campaign"}
+          </Text>
+          {payStep !== "sending" && (
+            <TouchableOpacity onPress={() => { setPayStep("idle"); setPayError(""); }}
+              style={{ width:34, height:34, borderRadius:17, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" }}>
+              <Text style={{ fontSize:18, color:"#64748B" }}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingHorizontal:20, paddingTop:20, paddingBottom:32 }}>
+
+          {payStep === "sending" && (
+            <View style={{ alignItems:"center", paddingVertical:40 }}>
+              <ActivityIndicator size="large" color="#1A56DB"/>
+              <Text style={{ fontFamily:fonts.semibold, fontSize:14, color:"#64748B", marginTop:16 }}>Submitting your payment…</Text>
+            </View>
+          )}
+
+          {payStep === "success" && (
+            <View style={{ alignItems:"center", paddingVertical:16 }}>
+              <View style={{ width:72, height:72, borderRadius:36, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+                <Text style={{ fontSize:36 }}>✅</Text>
+              </View>
+              <Text style={{ fontFamily:fonts.bold, fontSize:20, color:"#0F172A", textAlign:"center", marginBottom:8 }}>Payment Submitted!</Text>
+              <Text style={{ fontSize:14, color:"#64748B", textAlign:"center", lineHeight:22, marginBottom:20 }}>
+                {"We've received your campaign request.\nWe'll verify your transfer and launch your campaign within "}
+                <Text style={{ fontWeight:"700", color:"#10B981" }}>1–6 hours</Text>.
+              </Text>
+              <View style={{ backgroundColor:"#F0FDF4", borderRadius:14, padding:16, width:"100%", marginBottom:20 }}>
+                {[
+                  "We check transfers manually throughout the day",
+                  "You'll get a notification when your campaign goes live",
+                  "Contact support if not activated within 6 hours",
+                ].map((msg, i) => (
+                  <View key={i} style={{ flexDirection:"row", gap:10, paddingVertical:6 }}>
+                    <Text style={{ color:"#10B981" }}>✓</Text>
+                    <Text style={{ fontSize:13, color:"#0F172A", flex:1 }}>{msg}</Text>
+                  </View>
+                ))}
+              </View>
+              <TouchableOpacity
+                onPress={handlePaymentSuccess}
+                style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}>
+                <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Got it, I'll wait</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {payStep === "bank" && (
+            <>
+              <View style={{ backgroundColor:"#0F172A", borderRadius:18, padding:20, marginBottom:20, alignItems:"center" }}>
+                <Text style={{ fontSize:13, color:"rgba(255,255,255,0.6)", marginBottom:4 }}>Campaign advertising fee</Text>
+                <Text style={{ fontFamily:fonts.black, fontSize:36, color:"#FFF" }}>₦{amountNGN.toLocaleString()}</Text>
+                <Text style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4 }}>Includes ₦200 service charge · One-time per campaign</Text>
+              </View>
+
+              <View style={{ backgroundColor:"#F8FAFF", borderRadius:16, padding:16, marginBottom:14, borderWidth:1.5, borderColor:"#E2E8F0" }}>
+                <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#1A56DB", marginBottom:12 }}>
+                  Step 1 — Transfer ₦{amountNGN.toLocaleString()} to this account
+                </Text>
+                {[
+                  { l:"Bank",           v:"Sterling Bank"          },
+                  { l:"Account Number", v:"0144524670"              },
+                  { l:"Account Name",   v:"PROMO EARN DIGITAL HUB" },
+                  { l:"Amount",         v:`₦${amountNGN.toLocaleString()}` },
+                ].map((row, i) => (
+                  <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:8, borderBottomWidth:i<3?1:0, borderBottomColor:"#E2E8F0" }}>
+                    <Text style={{ fontSize:13, color:"#64748B" }}>{row.l}</Text>
+                    <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#0F172A" }}>{row.v}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={{ backgroundColor:"#EEF4FF", borderRadius:16, padding:16, marginBottom:20, borderWidth:1.5, borderColor:"#C7D7FA" }}>
+                <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#1A56DB", marginBottom:4 }}>
+                  Step 2 — Enter your sender's name
+                </Text>
+                <Text style={{ fontSize:12, color:"#4B6CB7", marginBottom:12, lineHeight:18 }}>
+                  Enter the name on the bank account you transferred from. We'll use this to find your payment.
+                </Text>
+                <TextInput
+                  value={senderName}
+                  onChangeText={setSenderName}
+                  placeholder="e.g. John Adebayo"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
+                  style={{
+                    backgroundColor:"#FFF", borderRadius:12, borderWidth:1.5,
+                    borderColor: senderName.trim() ? "#1A56DB" : "#E2E8F0",
+                    paddingHorizontal:14, paddingVertical:12,
+                    fontSize:15, color:"#0F172A",
+                  }}
+                />
+                <Text style={{ fontSize:11, color:"#EF4444", marginTop:8, fontWeight:"600" }}>
+                  ⚠️ This field is required — we need it to match your transfer.
+                </Text>
+              </View>
+
+              {payError ? (
+                <View style={{ backgroundColor:"#FEF2F2", borderRadius:12, padding:12, marginBottom:12 }}>
+                  <Text style={{ fontSize:13, color:"#EF4444" }}>⚠️ {payError}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                onPress={handleConfirmTransfer}
+                style={{ backgroundColor:"#1A56DB", borderRadius:14, height:54, alignItems:"center", justifyContent:"center" }}
+                activeOpacity={0.85}>
+                <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>✅ I've Transferred — Submit</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:10 }}>
+                Campaign launches within 1–6 hours · contact.promoearn@gmail.com for support
+              </Text>
+            </>
+          )}
+
+        </ScrollView>
+      </View>
+    </View>
+  </Modal>
+)}
     </>
   );
 }
