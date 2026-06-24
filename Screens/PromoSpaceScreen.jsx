@@ -95,7 +95,7 @@ const api = async (endpoint, options = {}) => {
 
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...options.headers },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "x-app-version": "1.1.0", ...options.headers },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   return res.json();
@@ -1097,6 +1097,212 @@ function MarketplaceLocked({ C }) {
   );
 }
 
+function TaskProofModal({ visible, task, onClose, onSubmitted, C }) {
+  const minSeconds = parseInt(task?.minTime) || 30;
+  const [timeLeft,    setTimeLeft]    = useState(minSeconds);
+  const [timerDone,   setTimerDone]   = useState(false);
+  const [proofUri,    setProofUri]    = useState(null);
+  const [proofBase64, setProofBase64] = useState(null);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState(null);
+  const [submitted,   setSubmitted]   = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setTimeLeft(minSeconds); setTimerDone(false);
+      setProofUri(null); setProofBase64(null);
+      setError(null); setSubmitting(false); setSubmitted(false);
+    }
+  }, [visible, task]);
+
+  useEffect(() => {
+    if (!visible || timerDone) return;
+    if (timeLeft <= 0) { setTimerDone(true); return; }
+    const id = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+    return () => clearTimeout(id);
+  }, [visible, timeLeft, timerDone]);
+
+  const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") { Alert.alert("Permission needed", "Please allow photo access."); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, aspect: [4, 3], quality: 0.3, base64: true, exif: false,
+      });
+      if (!result.canceled && result.assets?.length) {
+        setProofUri(result.assets[0].uri); setProofBase64(result.assets[0].base64); setError(null);
+      }
+    } catch { Alert.alert("Error", "Could not open photo library."); }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") { Alert.alert("Permission needed", "Please allow camera access."); return; }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, aspect: [4, 3], quality: 0.3, base64: true, exif: false,
+      });
+      if (!result.canceled && result.assets?.length) {
+        setProofUri(result.assets[0].uri); setProofBase64(result.assets[0].base64); setError(null);
+      }
+    } catch { Alert.alert("Error", "Could not open camera."); }
+  };
+
+  const handleSubmit = async () => {
+    if (!proofUri || !proofBase64) { setError("Please upload a screenshot as proof first."); return; }
+    setSubmitting(true); setError(null);
+    try {
+      const token = await AuthService.getToken();
+      const res = await fetch(`${BASE_URL}/tasks/${task.id}/submit-proof`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: task.id, taskTitle: task.title || "", base64Image: proofBase64 }),
+      });
+      const data = await res.json();
+      if (data.success) { setSubmitted(true); }
+      else { setError(data.message || "Submission failed. Please try again."); }
+    } catch { setError("Network error. Please check your connection."); }
+    finally { setSubmitting(false); }
+  };
+
+  const canSubmit = timerDone && proofUri && !submitting;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.6)", justifyContent:"flex-end" }}>
+        <View style={{ backgroundColor:"#FFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom: Platform.OS==="ios" ? 44 : 28, maxHeight:"94%" }}>
+          <View style={{ width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 }}/>
+          <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
+            <View style={{ flex:1, marginRight:12 }}>
+              <Text style={{ fontFamily:fonts.black, fontSize:17, color:"#0F172A" }}>Complete Task</Text>
+              <Text style={{ fontSize:12, color:"#64748B", marginTop:2 }} numberOfLines={1}>{task?.title}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={{ width:34, height:34, borderRadius:17, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" }}>
+              <Text style={{ fontSize:18, color:"#64748B" }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ paddingHorizontal:20, paddingTop:20, paddingBottom:24 }}>
+            {submitted ? (
+              <View style={{ alignItems:"center", paddingVertical:24 }}>
+                <View style={{ width:80, height:80, borderRadius:40, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+                  <Text style={{ fontSize:40 }}>⏳</Text>
+                </View>
+                <Text style={{ fontFamily:fonts.black, fontSize:22, color:"#0F172A", textAlign:"center", marginBottom:8 }}>Submitted for Review!</Text>
+                <Text style={{ fontSize:14, color:"#64748B", textAlign:"center", lineHeight:22, marginBottom:24 }}>
+                  Your proof has been sent to our review team.{"\n"}
+                  Your reward of{" "}
+                  <Text style={{ fontWeight:"800", color:"#10B981" }}>${parseFloat(task?.reward||0).toFixed(2)}</Text>
+                  {" "}will be credited once approved — usually within 24 hours.
+                </Text>
+                <TouchableOpacity
+                  style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}
+                  onPress={onSubmitted} activeOpacity={0.85}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Got it!</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={{ backgroundColor: timerDone ? "#F0FDF4" : "#EEF4FF", borderRadius:16, padding:18, marginBottom:16, alignItems:"center", borderWidth:1.5, borderColor: timerDone ? "#A7F3D0" : "#C7D7FA" }}>
+                  {timerDone ? (
+                    <>
+                      <Text style={{ fontSize:32, marginBottom:6 }}>✅</Text>
+                      <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#065F46" }}>Time requirement met!</Text>
+                      <Text style={{ fontSize:12, color:"#10B981", marginTop:4 }}>You can now upload your proof screenshot</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={{ fontSize:12, color:"#1A56DB", fontWeight:"600", marginBottom:6, textTransform:"uppercase", letterSpacing:0.5 }}>⏱ Time Remaining</Text>
+                      <Text style={{ fontFamily:fonts.black, fontSize:52, color:"#1A56DB", letterSpacing:-2 }}>{fmtTime(timeLeft)}</Text>
+                      <Text style={{ fontSize:12, color:"#4B6CB7", marginTop:6, textAlign:"center" }}>Stay on the task page until the timer reaches 0:00</Text>
+                    </>
+                  )}
+                </View>
+                
+
+                {/* Integrity warning */}
+                <View style={{ backgroundColor:"#FFF7ED", borderRadius:14, padding:14, marginBottom:16, borderWidth:1.5, borderColor:"#FED7AA" }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#9A3412", marginBottom:6 }}>⚠️ Important — Please Read</Text>
+                  <Text style={{ fontSize:12, color:"#92400E", lineHeight:19, marginBottom:6 }}>
+                    While the timer counts down, please <Text style={{ fontWeight:"800" }}>actually visit the task link and complete the required action</Text> (like, follow, share, etc.). Do not leave it open in the background without doing the task.
+                  </Text>
+                  <View style={{ height:1, backgroundColor:"#FED7AA", marginBottom:8 }}/>
+                  <Text style={{ fontSize:12, color:"#7C2D12", lineHeight:19 }}>
+                    🚫 <Text style={{ fontWeight:"800" }}>Do NOT upload fake or unrelated screenshots.</Text> Every submission is reviewed by our team. Uploading false proof is a violation of our terms and{" "}
+                    <Text style={{ fontWeight:"800" }}>will lead to permanent account suspension</Text> with no refund of your activation fee.
+                  </Text>
+                </View>
+
+
+                <View style={{ marginBottom:16 }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#0F172A", marginBottom:4 }}>📸 Upload Proof Screenshot</Text>
+                  <Text style={{ fontSize:12, color:"#64748B", marginBottom:12, lineHeight:18 }}>
+                    Take or upload a screenshot showing you completed the task.
+                  </Text>
+                  {proofUri ? (
+                    <View>
+                      <Image source={{ uri: proofUri }} style={{ width:"100%", height:180, borderRadius:14, borderWidth:1.5, borderColor:"#E2E8F0" }} resizeMode="cover"/>
+                      <TouchableOpacity onPress={() => { setProofUri(null); setProofBase64(null); }}
+                        style={{ position:"absolute", top:8, right:8, width:28, height:28, borderRadius:14, backgroundColor:"rgba(239,68,68,0.9)", alignItems:"center", justifyContent:"center" }}>
+                        <Text style={{ color:"#FFF", fontSize:14, fontWeight:"700" }}>✕</Text>
+                      </TouchableOpacity>
+                      <View style={{ position:"absolute", bottom:8, left:8, backgroundColor:"rgba(16,185,129,0.9)", paddingHorizontal:10, paddingVertical:4, borderRadius:8 }}>
+                        <Text style={{ color:"#FFF", fontSize:11, fontWeight:"700" }}>✓ Proof added</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection:"row", gap:10 }}>
+                      <TouchableOpacity onPress={takePhoto}
+                        style={{ flex:1, height:90, backgroundColor:"#F8FAFF", borderRadius:14, borderWidth:1.5, borderColor:"#E2E8F0", borderStyle:"dashed", alignItems:"center", justifyContent:"center", gap:6 }}>
+                        <Text style={{ fontSize:24 }}>📷</Text>
+                        <Text style={{ fontSize:12, color:"#64748B", fontWeight:"600" }}>Take Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={pickImage}
+                        style={{ flex:1, height:90, backgroundColor:"#F8FAFF", borderRadius:14, borderWidth:1.5, borderColor:"#E2E8F0", borderStyle:"dashed", alignItems:"center", justifyContent:"center", gap:6 }}>
+                        <Text style={{ fontSize:24 }}>🖼️</Text>
+                        <Text style={{ fontSize:12, color:"#64748B", fontWeight:"600" }}>From Gallery</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                <View style={{ backgroundColor:"#FFFBEB", borderRadius:12, padding:14, marginBottom:16, flexDirection:"row", alignItems:"center", justifyContent:"space-between", borderWidth:1, borderColor:"#FDE68A" }}>
+                  <Text style={{ fontSize:13, color:"#92600A", fontWeight:"600" }}>Reward on approval</Text>
+                  <Text style={{ fontFamily:fonts.black, fontSize:18, color:"#F59E0B" }}>+${parseFloat(task?.reward||0).toFixed(2)}</Text>
+                </View>
+
+                {error && (
+                  <View style={{ backgroundColor:"#FEF2F2", borderRadius:12, padding:12, marginBottom:12, borderWidth:1, borderColor:"#FECACA" }}>
+                    <Text style={{ fontSize:13, color:"#EF4444" }}>⚠️ {error}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={{ backgroundColor: canSubmit ? "#1A56DB" : "#CBD5E1", borderRadius:14, height:54, alignItems:"center", justifyContent:"center" }}
+                  onPress={handleSubmit} disabled={!canSubmit} activeOpacity={canSubmit ? 0.85 : 1}>
+                  {submitting
+                    ? <ActivityIndicator color="#FFF" />
+                    : <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>
+                        {!timerDone ? `⏱ Wait ${fmtTime(timeLeft)}` : !proofUri ? "📸 Upload proof first" : "📨 Submit for Review"}
+                      </Text>
+                  }
+                </TouchableOpacity>
+                <Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:10 }}>
+                  Reward credited within 24h after admin approves your proof
+                </Text>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ══════════════════════════════════════════════════════════════════════════
@@ -1108,7 +1314,10 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
   const [doneIds,  setDoneIds]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [slotTask, setSlotTask] = useState(null);
-  const [showSlot, setShowSlot] = useState(false);
+  const [showSlot,       setShowSlot]       = useState(false);
+  const [activeTask,     setActiveTask]     = useState(null);
+  const [showProofModal, setShowProofModal] = useState(false);
+  const activeTaskOnDoneRef = useRef(null);
   const locked = !(user?.isActivated || user?.isAdmin);
 
   useEffect(() => { fetchTasks(); loadDone(); }, []);
@@ -1130,19 +1339,10 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
     try { const r = await api("/tasks"); if (r.success) setTasks(r.data.tasks); } catch {}
     finally { setLoading(false); }
   };
-  const handleStart = async (task, cb) => {
-    try {
-      const r = await api(`/tasks/${task.id}/complete`, { method:"POST" });
-      if (r.success) {
-        saveDone(task.id);
-        const ur = await AuthService.getMe();
-        if (ur.success && setUser) setUser(ur.data.user);
-        Alert.alert("🎉 Task Complete!", `+$${parseFloat(task.reward).toFixed(2)} added to your balance!`);
-      } else {
-        Alert.alert("Oops", r.message||"Failed.");
-      }
-    } catch { Alert.alert("Error","Failed to complete task."); }
-    finally { cb?.(); }
+  const handleStart = (task, cb) => {
+    activeTaskOnDoneRef.current = cb || null;
+    setActiveTask(task);
+    setShowProofModal(true);
   };
 
   const list   = filter==="all" ? tasks : tasks.filter(t=>t.type===filter);
@@ -1258,6 +1458,22 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
 {tab==="advertise"    && <AdvertiseSection user={user} C={C}/>}
 {tab==="my-campaigns" && <MyCampaignsSection user={user} C={C}/>}
 {tab==="marketplace"  && <ScrollView contentContainerStyle={{ paddingBottom:40 }}><MarketplaceLocked C={C}/></ScrollView>}
+<TaskProofModal
+        visible={showProofModal}
+        task={activeTask}
+        onClose={() => {
+          setShowProofModal(false);
+          activeTaskOnDoneRef.current?.();
+          activeTaskOnDoneRef.current = null;
+        }}
+        onSubmitted={() => {
+          setShowProofModal(false);
+          if (activeTask) saveDone(activeTask.id);
+          activeTaskOnDoneRef.current?.();
+          activeTaskOnDoneRef.current = null;
+        }}
+        C={C}
+      />
       <SlotFullModal visible={showSlot} task={slotTask} onClose={()=>{setShowSlot(false);setSlotTask(null);}} C={C}/>
     </View>
   );

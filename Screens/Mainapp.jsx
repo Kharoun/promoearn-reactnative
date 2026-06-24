@@ -7,19 +7,21 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from 'expo-clipboard';
 import PromoSpaceScreen from "./PromoSpaceScreen"
+import * as ImagePicker from "expo-image-picker";
 import NotificationsListScreen from "./NotificationsListScreen";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+// import * as ImagePicker from "expo-image-picker";
 import { loadSavedAccounts } from "./PayoutMethodsscreen";
 import PayoutMethodsScreen   from "./PayoutMethodsscreen";
 import NotificationsScreen   from "./NotificationsScreen";
 import AccountSettingsScreen from "./AccountSettingsScreen";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 // import { Clipboard } from "react-native";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Dimensions, TextInput, Modal, Platform, Alert, RefreshControl,
-  ActivityIndicator, Linking, 
+  ActivityIndicator, Linking, Image,
 } from "react-native";
 import Svg, { Path, Circle, Rect, Line, Polyline, G } from "react-native-svg";
 import { WebView } from "react-native-webview";
@@ -677,7 +679,7 @@ const FAKE_TASKS = [
 const TaskCard = ({ task, locked, onStart, completed, completedIds }) => {
   const ts   = TYPE_STYLE[task.type] || TYPE_STYLE.social;
   // support both a `completed` bool (HomeScreen) and a `completedIds` array (PromoSpace)
-  const done = completed || (completedIds ? completedIds.includes(task.id) : false) || task.status === "completed";
+  const done = completed || (Array.isArray(completedIds) ? completedIds.includes(task.id) : false) || task.status === "completed";
   const logo  = task.brand?.slice(0,2).toUpperCase() || "PE";
   const color = task.color || C.blue;
   const [step, setStep] = useState("idle");
@@ -1620,6 +1622,315 @@ const PinModal = ({ visible, mode, onSuccess, onClose, userId }) => {
     </Modal>
   );
 };
+// ══════════════════════════════════════════════════════════════════════════
+// TaskProofModal — PromoEarn Mobile
+// Add this component to MainApp.jsx (or its own file and import it).
+//
+// Features:
+//   ⏱ Minimum time countdown — "Done" locked until timer expires
+//   📸 Screenshot upload required before submitting
+//   👁 Sends to pending review — reward held until admin approves
+//
+// Usage in TaskCard (replace the existing handleConfirm/onStart call):
+//   <TaskProofModal
+//     visible={showProofModal}
+//     task={activeTask}
+//     onClose={() => setShowProofModal(false)}
+//     onSubmitted={() => { setShowProofModal(false); markTaskDone(activeTask.id); }}
+//     C={C}
+//   />
+// ══════════════════════════════════════════════════════════════════════════
+
+// ─── IMPORTANT: Add this import at the top of MainApp.jsx ─────────────────
+// import * as ImagePicker from "expo-image-picker";
+// ─────────────────────────────────────────────────────────────────────────
+
+function TaskProofModal({ visible, task, onClose, onSubmitted, C }) {
+  // Timer state
+  const minSeconds = parseInt(task?.minTime) || 30;  // task.minTime in seconds, default 30
+  const [timeLeft,    setTimeLeft]    = useState(minSeconds);
+  const [timerDone,   setTimerDone]   = useState(false);
+
+  // Proof state
+  const [proofUri,    setProofUri]    = useState(null);
+  const [proofBase64, setProofBase64] = useState(null);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState(null);
+  const [submitted,   setSubmitted]   = useState(false);
+
+  // Reset everything when modal opens/closes
+  useEffect(() => {
+    if (visible) {
+      setTimeLeft(minSeconds);
+      setTimerDone(false);
+      setProofUri(null);
+      setError(null);
+      setSubmitting(false);
+      setSubmitted(false);
+    }
+  }, [visible, task]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!visible || timerDone) return;
+    if (timeLeft <= 0) { setTimerDone(true); return; }
+    const id = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+    return () => clearTimeout(id);
+  }, [visible, timeLeft, timerDone]);
+
+  const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Please allow photo access to upload proof.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.3,        // ← was 1, compress to 30% — keeps it well under 1 MB
+        base64: true,
+        exif: false,         // ← don't include EXIF data, saves space
+      });
+      if (!result.canceled && result.assets?.length) {
+        setProofUri(result.assets[0].uri);
+        setProofBase64(result.assets[0].base64);
+        setError(null);
+      }
+    } catch {
+      Alert.alert("Error", "Could not open photo library.");
+    }
+  };
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Please allow camera access to take a screenshot.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.3,        // ← was 1, compress to 30% — keeps it well under 1 MB
+        base64: true,
+        exif: false,         // ← don't include EXIF data, saves space
+      });
+      if (!result.canceled && result.assets?.length) {
+        setProofUri(result.assets[0].uri);
+        setProofBase64(result.assets[0].base64);
+        setError(null);
+      }
+    } catch {
+      Alert.alert("Error", "Could not open camera.");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!proofUri || !proofBase64) { setError("Please upload a screenshot as proof first."); return; }
+    setSubmitting(true); setError(null);
+    try {
+      const token = await AuthService.getToken();
+
+      const res = await fetch(`${BASE_URL}/tasks/${task.id}/submit-proof`, {
+        method:  "POST",
+        headers: {
+          Authorization:  `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskId:      task.id,
+          taskTitle:   task.title || "",
+          base64Image: proofBase64,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSubmitted(true);
+      } else {
+        setError(data.message || "Submission failed. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const canSubmit = timerDone && proofUri && !submitting;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.6)", justifyContent:"flex-end" }}>
+        <View style={{ backgroundColor:"#FFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom: Platform.OS==="ios" ? 44 : 28, maxHeight:"94%" }}>
+          <View style={{ width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 }}/>
+
+          {/* Header */}
+          <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
+            <View style={{ flex:1, marginRight:12 }}>
+              <Text style={{ fontFamily:fonts.black, fontSize:17, color:"#0F172A" }}>Complete Task</Text>
+              <Text style={{ fontSize:12, color:"#64748B", marginTop:2 }} numberOfLines={1}>{task?.title}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={{ width:34, height:34, borderRadius:17, backgroundColor:"#F8FAFF", alignItems:"center", justifyContent:"center" }}>
+              <Text style={{ fontSize:18, color:"#64748B" }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ paddingHorizontal:20, paddingTop:20, paddingBottom:24 }}>
+
+            {submitted ? (
+              /* ── Success view ── */
+              <View style={{ alignItems:"center", paddingVertical:24 }}>
+                <View style={{ width:80, height:80, borderRadius:40, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+                  <Text style={{ fontSize:40 }}>⏳</Text>
+                </View>
+                <Text style={{ fontFamily:fonts.black, fontSize:22, color:"#0F172A", textAlign:"center", marginBottom:8 }}>Submitted for Review!</Text>
+                <Text style={{ fontSize:14, color:"#64748B", textAlign:"center", lineHeight:22, marginBottom:24 }}>
+                  Your proof has been sent to our review team.{"\n"}
+                  Your reward of{" "}
+                  <Text style={{ fontWeight:"800", color:"#10B981" }}>${parseFloat(task?.reward||0).toFixed(2)}</Text>{" "}
+                  will be credited once approved — usually within 24 hours.
+                </Text>
+                <View style={{ backgroundColor:"#F8FAFF", borderRadius:14, padding:16, width:"100%", marginBottom:20 }}>
+                  {[
+                    "Our team reviews proof screenshots manually",
+                    "You'll get a notification when approved",
+                    "Fake or unrelated screenshots will be rejected",
+                  ].map((t, i) => (
+                    <View key={i} style={{ flexDirection:"row", gap:10, paddingVertical:6 }}>
+                      <Text style={{ color:"#1A56DB" }}>ℹ</Text>
+                      <Text style={{ fontSize:13, color:"#0F172A", flex:1, lineHeight:19 }}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}
+                  onPress={onSubmitted} activeOpacity={0.85}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Got it!</Text>
+                </TouchableOpacity>
+              </View>
+
+            ) : (
+              <>
+                {/* ── Step 1: Timer ── */}
+                <View style={{ backgroundColor: timerDone ? "#F0FDF4" : "#EEF4FF", borderRadius:16, padding:18, marginBottom:16, alignItems:"center", borderWidth:1.5, borderColor: timerDone ? "#A7F3D0" : "#C7D7FA" }}>
+                  {timerDone ? (
+                    <>
+                      <Text style={{ fontSize:32, marginBottom:6 }}>✅</Text>
+                      <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#065F46" }}>Time requirement met!</Text>
+                      <Text style={{ fontSize:12, color:"#10B981", marginTop:4 }}>You can now upload your proof screenshot</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={{ fontSize:12, color:"#1A56DB", fontWeight:"600", marginBottom:6, textTransform:"uppercase", letterSpacing:0.5 }}>
+                        ⏱ Time Remaining
+                      </Text>
+                      <Text style={{ fontFamily:fonts.black, fontSize:52, color:"#1A56DB", letterSpacing:-2 }}>
+                        {fmtTime(timeLeft)}
+                      </Text>
+                      <Text style={{ fontSize:12, color:"#4B6CB7", marginTop:6, textAlign:"center" }}>
+                        Stay on the task page until the timer reaches 0:00
+                      </Text>
+                    </>
+                  )}
+                </View>
+
+                {/* Integrity warning */}
+                <View style={{ backgroundColor:"#FFF7ED", borderRadius:14, padding:14, marginBottom:16, borderWidth:1.5, borderColor:"#FED7AA" }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#9A3412", marginBottom:6 }}>⚠️ Important — Please Read</Text>
+                  <Text style={{ fontSize:12, color:"#92400E", lineHeight:19, marginBottom:6 }}>
+                    While the timer counts down, please <Text style={{ fontWeight:"800" }}>actually visit the task link and complete the required action</Text> (like, follow, share, etc.). Do not leave it open in the background without doing the task.
+                  </Text>
+                  <View style={{ height:1, backgroundColor:"#FED7AA", marginBottom:8 }}/>
+                  <Text style={{ fontSize:12, color:"#7C2D12", lineHeight:19 }}>
+                    🚫 <Text style={{ fontWeight:"800" }}>Do NOT upload fake or unrelated screenshots.</Text> Every submission is reviewed by our team. Uploading false proof is a violation of our terms and{" "}
+                    <Text style={{ fontWeight:"800" }}>will lead to permanent account suspension</Text> with no refund of your activation fee.
+                  </Text>a
+                </View>
+
+                {/* ── Step 2: Upload proof ── */}
+                <View style={{ marginBottom:16 }}>
+                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#0F172A", marginBottom:4 }}>📸 Upload Proof Screenshot</Text>
+                  <Text style={{ fontSize:12, color:"#64748B", marginBottom:12, lineHeight:18 }}>
+                    Take or upload a screenshot showing you completed the task (e.g. you followed the page, liked the post, etc.)
+                  </Text>
+
+                  {proofUri ? (
+                    <View>
+                      <Image
+                        source={{ uri: proofUri }}
+                        style={{ width:"100%", height:180, borderRadius:14, borderWidth:1.5, borderColor:"#E2E8F0" }}
+                        resizeMode="cover"
+                      />
+                      <TouchableOpacity
+                        onPress={() => setProofUri(null)}
+                        style={{ position:"absolute", top:8, right:8, width:28, height:28, borderRadius:14, backgroundColor:"rgba(239,68,68,0.9)", alignItems:"center", justifyContent:"center" }}>
+                        <Text style={{ color:"#FFF", fontSize:14, fontWeight:"700" }}>✕</Text>
+                      </TouchableOpacity>
+                      <View style={{ position:"absolute", bottom:8, left:8, backgroundColor:"rgba(16,185,129,0.9)", paddingHorizontal:10, paddingVertical:4, borderRadius:8 }}>
+                        <Text style={{ color:"#FFF", fontSize:11, fontWeight:"700" }}>✓ Proof added</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection:"row", gap:10 }}>
+                      <TouchableOpacity
+                        onPress={takePhoto}
+                        style={{ flex:1, height:90, backgroundColor:"#F8FAFF", borderRadius:14, borderWidth:1.5, borderColor:"#E2E8F0", borderStyle:"dashed", alignItems:"center", justifyContent:"center", gap:6 }}>
+                        <Text style={{ fontSize:24 }}>📷</Text>
+                        <Text style={{ fontSize:12, color:"#64748B", fontWeight:"600" }}>Take Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={pickImage}
+                        style={{ flex:1, height:90, backgroundColor:"#F8FAFF", borderRadius:14, borderWidth:1.5, borderColor:"#E2E8F0", borderStyle:"dashed", alignItems:"center", justifyContent:"center", gap:6 }}>
+                        <Text style={{ fontSize:24 }}>🖼️</Text>
+                        <Text style={{ fontSize:12, color:"#64748B", fontWeight:"600" }}>From Gallery</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Reward preview */}
+                <View style={{ backgroundColor:"#FFFBEB", borderRadius:12, padding:14, marginBottom:16, flexDirection:"row", alignItems:"center", justifyContent:"space-between", borderWidth:1, borderColor:"#FDE68A" }}>
+                  <Text style={{ fontSize:13, color:"#92600A", fontWeight:"600" }}>Reward on approval</Text>
+                  <Text style={{ fontFamily:fonts.black, fontSize:18, color:"#F59E0B" }}>+${parseFloat(task?.reward||0).toFixed(2)}</Text>
+                </View>
+
+                {error && (
+                  <View style={{ backgroundColor:"#FEF2F2", borderRadius:12, padding:12, marginBottom:12, borderWidth:1, borderColor:"#FECACA" }}>
+                    <Text style={{ fontSize:13, color:"#EF4444" }}>⚠️ {error}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={{ backgroundColor: canSubmit ? "#1A56DB" : "#CBD5E1", borderRadius:14, height:54, alignItems:"center", justifyContent:"center" }}
+                  onPress={handleSubmit}
+                  disabled={!canSubmit}
+                  activeOpacity={canSubmit ? 0.85 : 1}>
+                  {submitting
+                    ? <ActivityIndicator color="#FFF" />
+                    : <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>
+                        {!timerDone
+                          ? `⏱ Wait ${fmtTime(timeLeft)}`
+                          : !proofUri
+                            ? "📸 Upload proof first"
+                            : "📨 Submit for Review"}
+                      </Text>
+                  }
+                </TouchableOpacity>
+                <Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:10 }}>
+                  Reward credited within 24h after admin approves your proof
+                </Text>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // SCREENS
@@ -1627,6 +1938,9 @@ const PinModal = ({ visible, mode, onSuccess, onClose, userId }) => {
 function HomeScreen({ user, setUser, onTabChange, onUpgrade, onRefresh, refreshing, onBellPress, unreadCount, balanceHidden, onToggleHide, C, language, t }) {
   const [tasks,        setTasks]        = useState([]);
   const [leaders,      setLeaders]      = useState([]);
+  const [activeTask,    setActiveTask]    = useState(null);
+  const [showProofModal, setShowProofModal] = useState(false);
+  const activeTaskOnDoneRef = useRef(null);
   // const [completedIds, setCompletedIds] = useState([]);
   const [showAllLeaders, setShowAllLeaders] = useState(false);
   const [completedIds, setCompletedIds] = useState([]);
@@ -1754,7 +2068,7 @@ const markTaskDone = async (taskId) => {
     } finally {
       if (onDone) onDone();
     }
-  };
+  };  
  
   const myRank = leaders.findIndex(l => l.uid === user?.uid);
  
@@ -1873,13 +2187,22 @@ const markTaskDone = async (taskId) => {
                 onStart={() => {}}
               />
             ))
-          : tasks.slice(0, 3).map(task => (
+         
+            : tasks.slice(0, 3).map(task => (
               <TaskCard
                 key={task.id}
                 task={task}
                 locked={false}
                 completedIds={completedIds}
-                onStart={handleStart}
+                onStart={(task, onDone) => {
+                  if (task.requiresProof) {
+                    activeTaskOnDoneRef.current = onDone || null;
+                    setActiveTask(task);
+                    setShowProofModal(true);
+                  } else {
+                    handleStart(task, onDone);
+                  }
+                }}
               />
             ))
         }
@@ -1889,7 +2212,26 @@ const markTaskDone = async (taskId) => {
           </Text>
         )}
       </View>
- 
+      <TaskProofModal
+        visible={showProofModal}
+        task={activeTask}
+        onClose={() => {
+          setShowProofModal(false);
+          if (activeTaskOnDoneRef.current) {
+            activeTaskOnDoneRef.current();
+            activeTaskOnDoneRef.current = null;
+          }
+        }}
+        onSubmitted={() => {
+          setShowProofModal(false);
+          if (activeTask) saveCompletedId(activeTask.id);
+          if (activeTaskOnDoneRef.current) {
+            activeTaskOnDoneRef.current();
+            activeTaskOnDoneRef.current = null;
+          }
+        }}
+        C={C}
+      />
       {/* Leaderboard */}
       <View style={{ paddingHorizontal: 16 }}>
         <SH title={t("topEarners")} C={C} />
