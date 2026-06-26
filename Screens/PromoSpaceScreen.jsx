@@ -26,16 +26,17 @@ const DEFAULT_C = {
 };
 
 const PRICING = {
-  likes:     0.027,
-  followers: 0.04,
-  views:     0.027,
-  signup:    0.027,
-  comments:  0.027,
-  shares:    0.027,
-  downloads: 0.04,
-  clicks:    0.027,
+  likes:     0.02,
+  followers: 0.02,
+  views:     0.02,
+  signup:    0.02,
+  comments:  0.02,
+  shares:    0.02,
+  downloads: 0.02,
+  clicks:    0.02,
 };
 const FEE_PCT = 0.15;
+const HIDDEN_FEE = 0.67;
 
 const calcQuote = (taskType, slots) => {
   const s = parseInt(slots) || 0;
@@ -494,7 +495,7 @@ function AdvertiseSection({ user, C }) {
   
       if (res.success) {
         const NGN_RATE = 1500;
-        const totalNGN = Math.round((quote?.total || 0) * NGN_RATE) + 200;
+        const totalNGN = Math.round(((quote?.total || 0) + HIDDEN_FEE) * NGN_RATE) + 200;
         setCId(res.data.campaignId);
         setAmountNGN(totalNGN);
         setSenderName("");
@@ -547,19 +548,22 @@ function AdvertiseSection({ user, C }) {
     <View style={{ flex:1, alignItems:"center", justifyContent:"center", padding:32 }}>
       <Text style={{ fontSize:56, marginBottom:16 }}>🚀</Text>
       <Text style={{ fontFamily:fonts.black, fontSize:24, color:C.dark, textAlign:"center", marginBottom:8 }}>Campaign Submitted!</Text>
-      <View style={{ backgroundColor:C.greenSoft, borderRadius:16, padding:16, width:"100%", marginBottom:24 }}>
-        {[
-          { icon:"✅", text:"Transfer received — we'll verify shortly" },
-          { icon:"👀", text:"Our team is reviewing your campaign" },
-          { icon:"⚡", text:"Goes live within 24 hours of approval" },
-          { icon:"📧", text:`Updates sent to ${form.contactEmail}` },
-        ].map((it,i) => (
-          <View key={i} style={{ flexDirection:"row", alignItems:"center", gap:10, paddingVertical:8, borderBottomWidth:i<3?1:0, borderBottomColor:C.border }}>
-            <Text style={{ fontSize:16 }}>{it.icon}</Text>
-            <Text style={{ fontSize:13, color:C.dark, flex:1 }}>{it.text}</Text>
-          </View>
-        ))}
-      </View>
+      <View style={{ backgroundColor:C.greenSoft, borderRadius:16, padding:16, width:"100%", marginBottom:12 }}>
+  {[
+    { icon:"✅", text:"Transfer received — we'll verify shortly" },
+    { icon:"👀", text:"Our team is reviewing your campaign" },
+    { icon:"⚡", text:"Goes live within 24 hours of approval" },
+    { icon:"📧", text:`Updates sent to ${form.contactEmail}` },
+  ].map((it,i) => (
+    <View key={i} style={{ flexDirection:"row", alignItems:"center", gap:10, paddingVertical:8, borderBottomWidth:i<3?1:0, borderBottomColor:C.border }}>
+      <Text style={{ fontSize:16 }}>{it.icon}</Text>
+      <Text style={{ fontSize:13, color:C.dark, flex:1 }}>{it.text}</Text>
+    </View>
+  ))}
+</View>
+<View style={{ backgroundColor:"#FEF9C3", borderRadius:14, padding:14, width:"100%", marginBottom:24 }}>
+  <Text style={{ fontSize:14, color:"#92400E", textAlign:"center" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
+</View>
       <TouchableOpacity style={{ backgroundColor:C.blue, borderRadius:14, paddingHorizontal:32, paddingVertical:14 }} onPress={reset} activeOpacity={0.85}>
         <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Start Another Campaign</Text>
       </TouchableOpacity>
@@ -645,25 +649,26 @@ function AdvertiseSection({ user, C }) {
     )}
   </View>
 </View>
-            {quote && (
-              <View style={{ backgroundColor:C.goldSoft, borderRadius:14, padding:16, marginBottom:20, borderWidth:1.5, borderColor:"#FDE68A" }}>
-                <View style={{ flexDirection:"row", alignItems:"center", gap:7, marginBottom:10 }}>
-                  <I.Zap s={15}/>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:13, color:C.dark }}>Pricing Preview</Text>
-                </View>
-                {[{l:`${form.slots} slots × $${(PRICING[selType]||0.35).toFixed(2)}`, v:`$${quote.total.toFixed(2)}`}].map((r,i)=>(
-                  <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:4 }}>
-                    <Text style={{ fontSize:12, color:C.muted }}>{r.l}</Text>
-                    <Text style={{ fontFamily:fonts.semibold, fontSize:12, color:C.dark }}>{r.v}</Text>
-                  </View>
-                ))}
-                <View style={{ height:1, backgroundColor:"#FDE68A", marginVertical:8 }}/>
-                <View style={{ flexDirection:"row", justifyContent:"space-between" }}>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:14, color:C.dark }}>Total</Text>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.blue }}>${quote.total.toFixed(2)}</Text>
-                </View>
-              </View>
-            )}
+{quote && (
+  <View style={{ backgroundColor:C.goldSoft, borderRadius:14, padding:16, marginBottom:20, borderWidth:1.5, borderColor:"#FDE68A" }}>
+    <View style={{ flexDirection:"row", alignItems:"center", gap:7, marginBottom:10 }}>
+      <I.Zap s={15}/>
+      <Text style={{ fontFamily:fonts.bold, fontSize:13, color:C.dark }}>Pricing Preview</Text>
+    </View>
+    <View style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:4 }}>
+      <Text style={{ fontSize:12, color:C.muted }}>{form.slots} slots</Text>
+      <Text style={{ fontFamily:fonts.semibold, fontSize:12, color:C.dark }}>${(quote.total + HIDDEN_FEE).toFixed(2)}</Text>
+    </View>
+    <View style={{ height:1, backgroundColor:"#FDE68A", marginVertical:8 }}/>
+    <View style={{ flexDirection:"row", justifyContent:"space-between" }}>
+      <Text style={{ fontFamily:fonts.bold, fontSize:14, color:C.dark }}>Total</Text>
+      <Text style={{ fontFamily:fonts.bold, fontSize:16, color:C.blue }}>${(quote.total + HIDDEN_FEE).toFixed(2)}</Text>
+    </View>
+    <View style={{ backgroundColor:"#FEF9C3", borderRadius:10, padding:10, marginTop:10 }}>
+      <Text style={{ fontSize:12, color:"#92400E" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
+    </View>
+  </View>
+)}
           <TouchableOpacity
   style={[FF.nextBtn, { backgroundColor:C.blue },
     (!form.brandName || !selType || !form.slots || !form.contactEmail ||
@@ -735,25 +740,25 @@ function AdvertiseSection({ user, C }) {
             </View>
 
             {/* Payment summary */}
-            {quote && (
-              <View style={{ backgroundColor:C.blueSoft, borderRadius:14, padding:16, marginBottom:14, borderWidth:1.5, borderColor:"#BFDBFE" }}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:14, color:C.dark, marginBottom:10 }}>💳 Payment Required</Text>
-                {[
-                 {l:`${form.slots} slots × $${(PRICING[selType]||0.35).toFixed(2)}`, v:`$${quote.total.toFixed(2)}`}
-                ].map((r,i)=>(
-                  <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:5 }}>
-                    <Text style={{ fontSize:13, color:C.muted }}>{r.l}</Text>
-                    <Text style={{ fontFamily:fonts.semibold, fontSize:13, color:C.dark }}>{r.v}</Text>
-                  </View>
-                ))}
-                <View style={{ height:1, backgroundColor:"#BFDBFE", marginVertical:8 }}/>
-                <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center" }}>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:15, color:C.dark }}>Total</Text>
-                  <Text style={{ fontFamily:fonts.bold, fontSize:20, color:C.blue }}>${quote.total.toFixed(2)}</Text>
-                </View>
-                <Text style={{ fontSize:11, color:C.muted, marginTop:6 }}>Refundable if rejected · Paystack secured</Text>
-              </View>
-            )}
+         {/* Payment summary */}
+{quote && (
+  <View style={{ backgroundColor:C.blueSoft, borderRadius:14, padding:16, marginBottom:14, borderWidth:1.5, borderColor:"#BFDBFE" }}>
+    <Text style={{ fontFamily:fonts.bold, fontSize:14, color:C.dark, marginBottom:10 }}>💳 Payment Required</Text>
+    <View style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:5 }}>
+      <Text style={{ fontSize:13, color:C.muted }}>{form.slots} slots</Text>
+      <Text style={{ fontFamily:fonts.semibold, fontSize:13, color:C.dark }}>${(quote.total + HIDDEN_FEE).toFixed(2)}</Text>
+    </View>
+    <View style={{ height:1, backgroundColor:"#BFDBFE", marginVertical:8 }}/>
+    <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center" }}>
+      <Text style={{ fontFamily:fonts.bold, fontSize:15, color:C.dark }}>Total</Text>
+      <Text style={{ fontFamily:fonts.bold, fontSize:20, color:C.blue }}>${(quote.total + HIDDEN_FEE).toFixed(2)}</Text>
+    </View>
+    <Text style={{ fontSize:11, color:C.muted, marginTop:6 }}>Refundable if rejected · Paystack secured</Text>
+    <View style={{ backgroundColor:"#DBEAFE", borderRadius:10, padding:10, marginTop:10 }}>
+      <Text style={{ fontSize:12, color:"#1E40AF" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
+    </View>
+  </View>
+)}
 
             <View style={{ flexDirection:"row", gap:10 }}>
             <TouchableOpacity style={[FF.backBtn, { borderColor:C.border }]} onPress={()=>setStep(2)} activeOpacity={0.8}>
@@ -811,18 +816,21 @@ function AdvertiseSection({ user, C }) {
                 {"We've received your campaign request.\nWe'll verify your transfer and launch your campaign within "}
                 <Text style={{ fontWeight:"700", color:"#10B981" }}>1–6 hours</Text>.
               </Text>
-              <View style={{ backgroundColor:"#F0FDF4", borderRadius:14, padding:16, width:"100%", marginBottom:20 }}>
-                {[
-                  "We check transfers manually throughout the day",
-                  "You'll get a notification when your campaign goes live",
-                  "Contact support if not activated within 6 hours",
-                ].map((msg, i) => (
-                  <View key={i} style={{ flexDirection:"row", gap:10, paddingVertical:6 }}>
-                    <Text style={{ color:"#10B981" }}>✓</Text>
-                    <Text style={{ fontSize:13, color:"#0F172A", flex:1 }}>{msg}</Text>
-                  </View>
-                ))}
-              </View>
+              <View style={{ backgroundColor:"#F0FDF4", borderRadius:14, padding:16, width:"100%", marginBottom:12 }}>
+  {[
+    "We check transfers manually throughout the day",
+    "You'll get a notification when your campaign goes live",
+    "Contact support if not activated within 6 hours",
+  ].map((msg, i) => (
+    <View key={i} style={{ flexDirection:"row", gap:10, paddingVertical:6 }}>
+      <Text style={{ color:"#10B981" }}>✓</Text>
+      <Text style={{ fontSize:13, color:"#0F172A", flex:1 }}>{msg}</Text>
+    </View>
+  ))}
+</View>
+<View style={{ backgroundColor:"#FEF9C3", borderRadius:12, padding:12, width:"100%", marginBottom:20 }}>
+  <Text style={{ fontSize:13, color:"#92400E", textAlign:"center" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
+</View>
               <TouchableOpacity
                 onPress={handlePaymentSuccess}
                 style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}>
@@ -893,9 +901,12 @@ function AdvertiseSection({ user, C }) {
                 activeOpacity={0.85}>
                 <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>✅ I've Transferred — Submit</Text>
               </TouchableOpacity>
-              <Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:10 }}>
-                Campaign launches within 1–6 hours · contact.promoearn@gmail.com for support
-              </Text>
+              <View style={{ backgroundColor:"#FEF9C3", borderRadius:12, padding:12, marginTop:12, marginBottom:4 }}>
+  <Text style={{ fontSize:13, color:"#92400E", textAlign:"center" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
+</View>
+<Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:8 }}>
+  Campaign launches within 1–6 hours · contact.promoearn@gmail.com for support
+</Text>
             </>
           )}
 
