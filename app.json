@@ -3,7 +3,7 @@
     "name": "PromoEarn",
     "slug": "promoearn",
     "jsEngine": "hermes",
-    "version": "1.0.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "promoearn",
@@ -19,6 +19,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "package": "com.promoearn.app",
+      "versionCode": 3,
       "jsEngine": "hermes",
   "permissions": [
   "CAMERA",

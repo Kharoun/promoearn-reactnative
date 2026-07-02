@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import Constants from "expo-constants";
 const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
 
 // ─── Token Management ─────────────────────────────────────────────────────────
@@ -100,6 +100,7 @@ const AuthService = {
     const data = await request("/login", {
       method: "POST",
       body: { identifier, password },
+      headers: { "x-app-version": Constants.expoConfig?.version || "1.0.0" },
       auth: false,
     });
     if (data.success && data.data?.accessToken) {

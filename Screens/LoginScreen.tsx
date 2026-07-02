@@ -6,7 +6,7 @@
 import { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Image,
-  KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
+  KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Linking,
 } from "react-native";
 import Svg, { Path, Circle, Rect, Polyline, Line } from "react-native-svg";
 import AuthService from "../services/authService";
@@ -79,6 +79,22 @@ const Icon = {
     </Svg>
   ),
 };
+// Opens the Gmail app if installed, otherwise falls back to Gmail in the browser.
+const openGmail = async () => {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined") window.open("https://mail.google.com/", "_blank");
+    return;
+  }
+  const gmailAppUrl = "googlegmail://";
+  const gmailWebUrl = "https://mail.google.com/";
+  try {
+    const canOpenApp = await Linking.canOpenURL(gmailAppUrl);
+    if (canOpenApp) await Linking.openURL(gmailAppUrl);
+    else await Linking.openURL(gmailWebUrl);
+  } catch {
+    await Linking.openURL(gmailWebUrl);
+  }
+};
 
 export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
   const [identifier,      setIdentifier]      = useState("");
@@ -88,6 +104,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState("");
   const [identifierError, setIdentifierError] = useState("");
+  const [isBannedError,   setIsBannedError]   = useState(false);
   const [passwordError,   setPasswordError]   = useState("");
   const [success,         setSuccess]         = useState("");
   const [googleInfo,      setGoogleInfo]      = useState(""); // info (not error) for google
@@ -113,7 +130,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
 
   const validate = () => {
     let valid = true;
-    setIdentifierError(""); setPasswordError(""); setError("");
+    setIdentifierError(""); setPasswordError(""); setError(""); setIsBannedError(false);
     if (!identifier.trim()) { setIdentifierError("Please enter your email or phone number."); valid = false; }
     if (!password.trim())   { setPasswordError("Please enter your password."); valid = false; }
     return valid;
@@ -122,7 +139,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
   const handleLogin = async () => {
     if (!validate()) return;
     try {
-      setLoading(true); setError("");
+      setLoading(true); setError(""); setIsBannedError(false);
       const result = await AuthService.login(identifier.trim(), password);
       if (result.success) {
         await AuthService.recordLoginTime();
@@ -135,8 +152,10 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
           setPasswordError("Incorrect password. Please try again.");
         else if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("no user"))
           setIdentifierError("No account found with this email or phone.");
-        else if (msg.toLowerCase().includes("banned"))
-          setError("Your account has been suspended. Contact support.");
+        else if (msg.toLowerCase().includes("banned") || msg.toLowerCase().includes("suspended")) {
+          setIsBannedError(true);
+          setError("Check your email for instructions to reactivate your account.");
+        }
         else
           setError(msg || "Login failed. Please check your details and try again.");
       }
@@ -181,11 +200,20 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
 
           {/* Generic error */}
           {error ? (
-            <View style={st.errorBanner}>
-              <Icon.Alert size={16} color="#DC2626"/>
-              <Text style={st.errorBannerText}>{error}</Text>
-            </View>
-          ) : null}
+  <View style={st.errorBanner}>
+    <Icon.Alert size={18} color="#DC2626"/>
+    <View style={{ flex:1 }}>
+      <Text style={st.errorBannerTitle}>{isBannedError ? "Account Suspended" : "Login Failed"}</Text>
+      <Text style={st.errorBannerText}>{error}</Text>
+      {isBannedError ? (
+        <TouchableOpacity onPress={openGmail} activeOpacity={0.8} style={st.gmailBtn}>
+          <Icon.Mail size={13} color="#FFFFFF"/>
+          <Text style={st.gmailBtnText}>Open Gmail</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  </View>
+) : null}
 
           {/* Success */}
           {success ? (
@@ -207,7 +235,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
                 placeholder="you@example.com"
                 placeholderTextColor="#CBD5E1"
                 value={identifier}
-                onChangeText={t => { setIdentifier(t); setIdentifierError(""); setError(""); }}
+                onChangeText={t => { setIdentifier(t); setIdentifierError(""); setError(""); setIsBannedError(false); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -244,7 +272,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
                 placeholderTextColor="#CBD5E1"
                 secureTextEntry={!showPassword}
                 value={password}
-                onChangeText={t => { setPassword(t); setPasswordError(""); setError(""); }}
+                onChangeText={t => { setPassword(t); setPasswordError(""); setError(""); setIsBannedError(false); }}
                 onFocus={fo("pw")} onBlur={bl}
                 onSubmitEditing={canSubmit?handleLogin:undefined}
                 returnKeyType="go"
@@ -327,6 +355,9 @@ const st = StyleSheet.create({
   sub:               { fontFamily:fonts.regular, fontSize:15, color:"#64748B", lineHeight:22 },
   card:              { backgroundColor:WHITE, marginHorizontal:16, borderRadius:24, padding:24, shadowColor:BLUE, shadowOffset:{width:0,height:4}, shadowOpacity:0.08, shadowRadius:20, elevation:6 },
   errorBanner:       { flexDirection:"row", alignItems:"flex-start", gap:10, backgroundColor:"#FFF5F5", borderRadius:12, padding:14, marginBottom:16, borderWidth:1, borderColor:"#FECACA" },
+  errorBannerTitle: { fontFamily:fonts.bold, fontSize:13.5, color:"#DC2626", marginBottom:3 },
+gmailBtn: { flexDirection:"row", alignItems:"center", gap:6, backgroundColor:"#DC2626", borderRadius:8, paddingHorizontal:12, paddingVertical:7, marginTop:10, alignSelf:"flex-start" },
+gmailBtnText: { fontFamily:fonts.bold, fontSize:12.5, color:"#FFFFFF" },
   errorBannerText:   { fontFamily:fonts.medium, flex:1, fontSize:13, color:"#DC2626", lineHeight:19 },
   successBanner:     { flexDirection:"row", alignItems:"center", gap:10, backgroundColor:"#F0FDF4", borderRadius:12, padding:14, marginBottom:16, borderWidth:1, borderColor:"#BBF7D0" },
   successBannerText: { fontFamily:fonts.semibold, flex:1, fontSize:13, color:"#15803D" },

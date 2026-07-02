@@ -26,18 +26,17 @@ const DEFAULT_C = {
 };
 
 const PRICING = {
-  likes:     0.02,
-  followers: 0.02,
-  views:     0.02,
-  signup:    0.02,
-  comments:  0.02,
-  shares:    0.02,
-  downloads: 0.02,
-  clicks:    0.02,
+  likes:     0.013,
+  followers: 0.013,
+  views:     0.013,
+  signup:    0.013,
+  comments:  0.013,
+  shares:    0.013,
+  downloads: 0.013,
+  clicks:    0.013,
 };
 const FEE_PCT = 0.15;
 const HIDDEN_FEE = 0.67;
-
 const calcQuote = (taskType, slots) => {
   const s = parseInt(slots) || 0;
   const base = (PRICING[taskType] || 0.35) * s;
@@ -96,7 +95,7 @@ const api = async (endpoint, options = {}) => {
 
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "x-app-version": "1.1.0", ...options.headers },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "x-app-version": "1.3.0", ...options.headers },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   return res.json();
@@ -146,9 +145,11 @@ const SlotFullModal = ({ visible, task, onClose, C }) => {
 };
 
 // ── Task Card ──────────────────────────────────────────────────────────────
-const TaskCard = ({ task, locked, onStart, completedIds, C, onSlotsFull }) => {
-  const tm   = TYPE_META[task.type] || TYPE_META.social;
-  const done = completedIds.includes(task.id) || task.status === "completed";
+// FIXED
+const TaskCard = ({ task, locked, onStart, completedIds, rejectedIds = [], C, onSlotsFull }) => {
+  const tm          = TYPE_META[task.type] || TYPE_META.social;
+  const done        = completedIds.includes(task.id) || task.status === "completed";
+  const wasRejected = !done && rejectedIds.includes(task.id);
   const col  = task.color || C.blue;
   const isFull = task.slots > 0 && (task.filled||0) >= task.slots && !done;
   const pct    = task.slots > 0 ? Math.min(((task.filled||0)/task.slots)*100, 100) : 0;
@@ -178,6 +179,13 @@ const TaskCard = ({ task, locked, onStart, completedIds, C, onSlotsFull }) => {
           {isFull && <View style={[TC.tag, { backgroundColor:"#FFF5F5", borderWidth:1, borderColor:"#FECACA" }]}><Text style={[TC.tagTxt, { color:"#EF4444" }]}>FULL</Text></View>}
         </View>
         <Text style={{ fontFamily:fonts.semibold, fontSize:14, color:C.dark, lineHeight:20 }} numberOfLines={2}>{task.title}</Text>
+        {wasRejected && (
+  <View style={{ flexDirection:"row", alignItems:"center", marginTop:4 }}>
+    <View style={{ backgroundColor:"#FEF2F2", borderRadius:8, paddingHorizontal:8, paddingVertical:3, borderWidth:1, borderColor:"#FECACA" }}>
+      <Text style={{ fontSize:10, color:"#EF4444", fontFamily:fonts.bold }}>⚠️ Rejected · Tap to retry</Text>
+    </View>
+  </View>
+)}
         {task.slots > 0 && (
           <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}>
             <View style={{ flex:1, height:3, backgroundColor:C.border, borderRadius:2, overflow:"hidden" }}>
@@ -199,10 +207,13 @@ const TaskCard = ({ task, locked, onStart, completedIds, C, onSlotsFull }) => {
           </TouchableOpacity>
         ) : locked ? (
           <View style={[TC.actionBtn, { backgroundColor:C.border }]}><I.Lock s={12} c={C.white}/></View>
-        ) : step==="idle" ? (
-          <TouchableOpacity style={[TC.actionBtn, { backgroundColor:col }]} onPress={handleStart} activeOpacity={0.85}>
-            <Text style={TC.actionBtnTxt}>Start</Text>
-          </TouchableOpacity>
+        // FIXED
+) : step==="idle" ? (
+  <TouchableOpacity
+    style={[TC.actionBtn, { backgroundColor: wasRejected ? "#F97316" : col }]}
+    onPress={handleStart} activeOpacity={0.85}>
+    <Text style={TC.actionBtnTxt}>{wasRejected ? "Retry" : "Start"}</Text>
+  </TouchableOpacity>
         ) : step==="opened" ? (
           <TouchableOpacity style={[TC.actionBtn, { backgroundColor:C.green }]} onPress={handleConfirm} activeOpacity={0.85}>
             <Text style={[TC.actionBtnTxt, { fontSize:10 }]}>Done?</Text>
@@ -1323,6 +1334,7 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
   const [filter,   setFilter]   = useState("all");
   const [tasks,    setTasks]    = useState([]);
   const [doneIds,  setDoneIds]  = useState([]);
+  const [rejectedIds, setRejectedIds] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [slotTask, setSlotTask] = useState(null);
   const [showSlot,       setShowSlot]       = useState(false);
@@ -1345,11 +1357,25 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
       setDoneIds(p => [...new Set([...p, id])]);
     } catch {}
   };
-  const fetchTasks = async () => {
-    setLoading(true);
-    try { const r = await api("/tasks"); if (r.success) setTasks(r.data.tasks); } catch {}
-    finally { setLoading(false); }
-  };
+ // FIXED — server's completedTaskIds is the source of truth
+// Server only includes pending/approved; rejected tasks are absent → task unlocks
+const fetchTasks = async () => {
+  setLoading(true);
+  try {
+    const r = await api("/tasks");
+    if (r.success) {
+      setTasks(r.data.tasks);
+      const serverIds   = r.data.completedTaskIds || [];
+      const rejectedIds = r.data.rejectedTaskIds  || [];
+      setDoneIds(serverIds);
+      setRejectedIds(rejectedIds);
+      try {
+        await AsyncStorage.setItem(`pe_completed_${user?.uid}`, JSON.stringify(serverIds));
+      } catch {}
+    }
+  } catch {}
+  finally { setLoading(false); }
+};
   const handleStart = (task, cb) => {
     activeTaskOnDoneRef.current = cb || null;
     setActiveTask(task);
@@ -1440,7 +1466,8 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
     <Text style={{ fontSize:13, color:C.muted, marginTop:4 }}>Check back soon</Text>
   </View>
 ) : sorted.map(task=>(
-  <TaskCard key={task.id} task={task} locked={false} completedIds={doneIds} onStart={handleStart} onSlotsFull={t=>{setSlotTask(t);setShowSlot(true);}} C={C}/>
+  // FIXED
+<TaskCard key={task.id} task={task} locked={false} completedIds={doneIds} rejectedIds={rejectedIds} onStart={handleStart} onSlotsFull={t=>{setSlotTask(t);setShowSlot(true);}} C={C}/>
 ))}
           </ScrollView>
 
