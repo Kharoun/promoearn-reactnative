@@ -5,17 +5,29 @@ import {
 } from "react-native";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
+import Constants from "expo-constants";
+// import { Platform } from "react-native";
+
 const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
 
+
+
 const api = async (endpoint, options = {}) => {
-  const token = AuthService.getToken();
+  const token = await AuthService.getToken();
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
-    headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}`, ...options.headers },
+    headers: { 
+      "Content-Type": "application/json", 
+      Authorization: `Bearer ${token}`,
+      "x-app-version": Constants.expoConfig?.version || "1.0.0",
+      "x-platform": Platform.OS,
+      ...options.headers,
+    },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   return res.json();
 };
+
 
 const DEFAULT_PREFS = {
   taskAlerts:     true,

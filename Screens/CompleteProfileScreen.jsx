@@ -8,9 +8,12 @@
 
 import { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, KeyboardAvoidingView,
-  Platform, ScrollView, ActivityIndicator,
+  ActivityIndicator,
+  Alert, KeyboardAvoidingView,
+  Platform, ScrollView,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View,
 } from "react-native";
 import AuthService from "../services/authService";
 

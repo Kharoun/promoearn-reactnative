@@ -5,21 +5,11 @@ import {
 } from "react-native";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
+import Constants from "expo-constants";
+import { apiClient } from "../services/apiClient";
+// import { Platform } from "react-native";
 
 
-const BASE_URL = "https://promoearn-backend.onrender.com/api/v1";
-
-
-const api = async (endpoint, options = {}) => {
-  // STEP 3: await the token — AuthService.getToken() is async
-  const token = await AuthService.getToken();
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}`, ...options.headers },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  return res.json();
-};
 
 const TYPE_ICON = {
   taskAlerts:     { emoji:"✅", bg:"#F0FDF4", color:"#10B981" },
@@ -41,7 +31,7 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
 
   const fetchNotifications = async () => {
     try {
-      const res = await api("/notifications");
+      const res = await apiClient("/notifications");
       if (res.success) {
         setNotifications(res.data.notifications);
         if (onUnreadChange) onUnreadChange(res.data.unreadCount);
@@ -56,7 +46,7 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
 
   const handleMarkAllRead = async () => {
     try {
-      await api("/notifications/read-all", { method:"PUT" });
+      await apiClient("/notifications/read-all", { method:"PUT" });
       setNotifications(prev => prev.map(n => ({ ...n, read:true })));
       if (onUnreadChange) onUnreadChange(0);
     } catch (err) {
@@ -66,7 +56,7 @@ export default function NotificationsListScreen({ visible, onClose, onUnreadChan
 
   const handleMarkRead = async (id) => {
     try {
-      await api(`/notifications/${id}/read`, { method:"PUT" });
+      await apiClient(`/notifications/${id}/read`, { method:"PUT" });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read:true } : n));
       const unread = notifications.filter(n => !n.read && n.id !== id).length;
       if (onUnreadChange) onUnreadChange(unread);

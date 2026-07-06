@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import Constants from "expo-constants";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Image,
   KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Linking,
@@ -107,6 +108,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
   const [isBannedError,   setIsBannedError]   = useState(false);
   const [passwordError,   setPasswordError]   = useState("");
   const [success,         setSuccess]         = useState("");
+  const [updateInfo, setUpdateInfo] = useState(null);
   const [googleInfo,      setGoogleInfo]      = useState(""); // info (not error) for google
 
   const fo = (f) => () => setFocused(f);
@@ -130,7 +132,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
 
   const validate = () => {
     let valid = true;
-    setIdentifierError(""); setPasswordError(""); setError(""); setIsBannedError(false);
+    setIdentifierError(""); setPasswordError(""); setError(""); setIsBannedError(false); setUpdateInfo(null);
     if (!identifier.trim()) { setIdentifierError("Please enter your email or phone number."); valid = false; }
     if (!password.trim())   { setPasswordError("Please enter your password."); valid = false; }
     return valid;
@@ -140,6 +142,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
     if (!validate()) return;
     try {
       setLoading(true); setError(""); setIsBannedError(false);
+      console.log("VERSION SENT:", Constants.expoConfig?.version);
       const result = await AuthService.login(identifier.trim(), password);
       if (result.success) {
         await AuthService.recordLoginTime();
@@ -148,7 +151,10 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
       
       } else {
         const msg = result.message || "";
-        if (msg.toLowerCase().includes("password"))
+        if (result.code === "UPDATE_REQUIRED") {
+          setUpdateInfo({ updateUrl: result.data?.updateUrl || "https://play.google.com/store/apps/details?id=com.promoearn.app" });
+        }
+        else if (msg.toLowerCase().includes("password"))
           setPasswordError("Incorrect password. Please try again.");
         else if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("no user"))
           setIdentifierError("No account found with this email or phone.");
@@ -162,7 +168,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
     } catch (err) {
       const msg = err.message || "";
       if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch"))
-        setError("Cannot connect to server. Make sure the backend is running on port 5000.");
+        setError("Cannot connect to server. Check your internet connection.");
       else
         setError(msg || "Something went wrong. Please try again.");
     } finally {
@@ -197,6 +203,24 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
 
         {/* Card */}
         <View style={st.card}>
+
+{/* Update required banner */}
+{updateInfo ? (
+            <View style={st.errorBanner}>
+              <Icon.Info size={16} color={BLUE}/>
+              <View style={{ flex:1 }}>
+                <Text style={[st.errorBannerText, { color: BLUE, fontWeight:"700", marginBottom:2 }]}>Update Required</Text>
+                <Text style={st.errorBannerText}>A new version of PromoEarn is available. Please update to continue.</Text>
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(updateInfo.updateUrl)}
+                  activeOpacity={0.8}
+                  style={{ flexDirection:"row", alignItems:"center", gap:6, backgroundColor:BLUE, borderRadius:8, paddingHorizontal:12, paddingVertical:7, marginTop:10, alignSelf:"flex-start" }}
+                >
+                  <Text style={{ fontFamily:fonts.bold, fontSize:12.5, color:"#FFFFFF" }}>Update Now</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
 
           {/* Generic error */}
           {error ? (
@@ -235,7 +259,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
                 placeholder="you@example.com"
                 placeholderTextColor="#CBD5E1"
                 value={identifier}
-                onChangeText={t => { setIdentifier(t); setIdentifierError(""); setError(""); setIsBannedError(false); }}
+                onChangeText={t => { setIdentifier(t); setIdentifierError(""); setError(""); setIsBannedError(false); setUpdateInfo(null); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -272,7 +296,7 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
                 placeholderTextColor="#CBD5E1"
                 secureTextEntry={!showPassword}
                 value={password}
-                onChangeText={t => { setPassword(t); setPasswordError(""); setError(""); setIsBannedError(false); }}
+                onChangeText={t => { setPassword(t); setPasswordError(""); setError(""); setIsBannedError(false); setUpdateInfo(null); }}
                 onFocus={fo("pw")} onBlur={bl}
                 onSubmitEditing={canSubmit?handleLogin:undefined}
                 returnKeyType="go"

@@ -9,12 +9,12 @@ import {
   TextInput, Modal, Platform, Alert, Switch, ActivityIndicator,
   StatusBar,
 } from "react-native";
+import { apiClient } from "../services/apiClient";
 import Svg, { Path, Circle, Rect, Line, Polyline } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
 
-const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth";
 const PREFS_KEY = "pe_user_preferences";
 
 // ── Themes ────────────────────────────────────────────────────────────────
@@ -123,14 +123,10 @@ function ChangeUsernameModal({ visible, onClose, user, C, onSuccess }) {
     if (trimmed === user?.username)      { setError("This is already your username."); return; }
     setLoading(true); setError("");
     try {
-      const token = await AuthService.getToken();
-      // FIX: was ${BASE_URL}/auth/change-username (double /auth/)
-      const res   = await fetch(`${BASE_URL}/change-username`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ username: trimmed })
+      const data = await apiClient("/auth/change-username", {
+        method: "POST",
+        body: { username: trimmed },
       });
-      const data = await res.json();
       if (data.success) {
         onSuccess(trimmed);
         onClose();
@@ -204,14 +200,10 @@ function ChangePasswordModal({ visible, onClose, C }) {
     if (newPw === cur)    { setError("New password must differ from current."); return; }
     setLoading(true);
     try {
-      const token = await AuthService.getToken();
-      // FIX: was ${BASE_URL}/auth/change-password (double /auth/)
-      const res   = await fetch(`${BASE_URL}/change-password`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ currentPassword:cur, newPassword:newPw }),
+      const data = await apiClient("/auth/change-password", {
+        method: "POST",
+        body: { currentPassword: cur, newPassword: newPw },
       });
-      const data = await res.json();
       if (data.success) {
         onClose();
         Alert.alert("Password Updated", "Your password has been changed successfully.");
@@ -304,14 +296,10 @@ function TwoFAModal({ visible, onClose, enabled, onConfirmToggle, C }) {
     if (code.length < 6) { setError("Enter the 6-digit code from your email."); return; }
     setLoading(true); setError("");
     try {
-      // FIX: actually calls the backend API now
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/toggle-2fa`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ enabled: true, code }),
+      const data = await apiClient("/auth/toggle-2fa", {
+        method: "POST",
+        body: { enabled: true, code },
       });
-      const data = await res.json();
       if (data.success) {
         onConfirmToggle(true);
         setStep(3);
@@ -325,13 +313,10 @@ function TwoFAModal({ visible, onClose, enabled, onConfirmToggle, C }) {
   const handleDisable = async () => {
     setLoading(true);
     try {
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/toggle-2fa`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ enabled: false }),
+      const data = await apiClient("/auth/toggle-2fa", {
+        method: "POST",
+        body: { enabled: false },
       });
-      const data = await res.json();
       if (data.success) {
         onConfirmToggle(false);
         onClose();
@@ -455,12 +440,9 @@ function DeleteAccountModal({ visible, onClose, C, onDeleted }) {
     if (confirm !== "DELETE") { setError('Type DELETE in capitals to confirm.'); return; }
     setLoading(true); setError("");
     try {
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/delete-account`, {
+      const data = await apiClient("/auth/delete-account", {
         method: "DELETE",
-        headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
       });
-      const data = await res.json();
       if (data.success) {
         await AuthService.logout();
         onClose();

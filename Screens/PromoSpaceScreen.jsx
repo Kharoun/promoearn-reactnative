@@ -11,9 +11,13 @@ import {
 import Svg, { Path, Circle, Line, Polyline, Polygon, Rect } from "react-native-svg";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
+import { apiClient, apiFormData } from "../services/apiClient";
 import { Linking } from "react-native";
+import Constants from "expo-constants";
+import { WebView } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+// import { Platform } from "react-native";
 
 const BASE_URL = "https://promoearn-backend.onrender.com/api/v1"       // ✅
 
@@ -86,30 +90,7 @@ const FAKE_TASKS = [
   { id:"demo_5", type:"survey", brand:"MTN",     title:"Complete MTN customer satisfaction survey",       reward:"1.30", slots:100, filled:23,  time:"4 min",  color:"#F59E0B" },
 ];
 
-// ── API helpers ────────────────────────────────────────────────────────────
-const api = async (endpoint, options = {}) => {
-  const token = await AuthService.getToken();
-  if (!token) {
-    throw new Error("Not authenticated — no token available");
-  }
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "x-app-version": "1.3.0", ...options.headers },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  return res.json();
-};
-
-const apiFormData = async (endpoint, formData) => {
-  const token = await AuthService.getToken();
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  });
-  return res.json();
-};
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const I = {
@@ -454,6 +435,8 @@ function AdvertiseSection({ user, C }) {
   const [amountNGN,   setAmountNGN]  = useState(0);
   const [senderName,  setSenderName] = useState("");
   const [payError,    setPayError]   = useState("");
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
+const [payRef,      setPayRef]      = useState(null);
   const [done,        setDone]       = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -481,7 +464,7 @@ function AdvertiseSection({ user, C }) {
       const mediaUrls = await uploadMedia();
       const userDisplayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || user?.email || "Unknown";
   
-      const res = await api("/campaigns/submit", {
+      const res = await apiClient("/campaigns/submit", {
         method: "POST",
         body: {
           brandName:     form.brandName,
@@ -505,12 +488,11 @@ function AdvertiseSection({ user, C }) {
       });
   
       if (res.success) {
-        const NGN_RATE = 1500;
-        const totalNGN = Math.round(((quote?.total || 0) + HIDDEN_FEE) * NGN_RATE) + 200;
         setCId(res.data.campaignId);
-        setAmountNGN(totalNGN);
-        setSenderName("");
-        setPayStep("bank"); // ← show bank transfer modal
+        setCheckoutUrl(res.data.checkoutUrl);
+        setPayRef(res.data.reference);
+        setPayStep("checkout");
+        if (Platform.OS === "web") window.open(res.data.checkoutUrl, "_blank");
       } else {
         Alert.alert("Error", res.message || "Submission failed.");
       }
@@ -521,25 +503,22 @@ function AdvertiseSection({ user, C }) {
     }
   };
 
-  const handleConfirmTransfer = async () => {
-    if (!senderName.trim()) {
-      setPayError("Please enter the sender's name before submitting."); return;
-    }
+  const verifyCampaignPayment = async () => {
     setPayStep("sending"); setPayError("");
     try {
-      const res = await api("/campaigns/manual-payment", {
+      const res = await apiClient("/payments/verify-payment", {
         method: "POST",
-        body: { campaignId, senderName: senderName.trim(), amountNGN },
+        body: { reference: payRef },
       });
       if (res.success) {
         setPayStep("success");
       } else {
-        setPayError(res.message || "Submission failed. Please try again.");
-        setPayStep("bank");
+        setPayError(res.message || "Payment not confirmed yet. If you just paid, wait a moment and try again.");
+        setPayStep("checkout");
       }
     } catch {
-      setPayError("Network error. Please check your connection.");
-      setPayStep("bank");
+      setPayError("Network error. Please try again.");
+      setPayStep("checkout");
     }
   };
   
@@ -788,17 +767,13 @@ function AdvertiseSection({ user, C }) {
         )}
       </ScrollView>
 
-      {/* ── Campaign Payment Modal ─────────────────────────────────────── */}
-    {/* ── Bank Transfer Payment Modal ───────────────────────────────── */}
-{payStep !== "idle" && (
+      {payStep !== "idle" && (
   <Modal visible animationType="slide" transparent>
     <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.55)", justifyContent:"flex-end" }}>
-      <View style={{ backgroundColor:"#FFFFFF", borderTopLeftRadius:28, borderTopRightRadius:28, paddingBottom: Platform.OS==="ios" ? 44 : 28, maxHeight:"92%" }}>
-        <View style={{ width:40, height:4, backgroundColor:"#E2E8F0", borderRadius:2, alignSelf:"center", marginTop:12 }}/>
-
+      <View style={{ backgroundColor:"#FFFFFF", borderTopLeftRadius:28, borderTopRightRadius:28, height:"90%" }}>
         <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:"#E2E8F0" }}>
           <Text style={{ fontFamily:fonts.black, fontSize:18, color:"#0F172A" }}>
-            {payStep === "success" ? "✅ Submitted!" : payStep === "sending" ? "Submitting…" : "Pay for Campaign"}
+            {payStep === "success" ? "✅ Submitted!" : payStep === "sending" ? "Verifying…" : "Pay for Campaign"}
           </Text>
           {payStep !== "sending" && (
             <TouchableOpacity onPress={() => { setPayStep("idle"); setPayError(""); }}
@@ -808,120 +783,53 @@ function AdvertiseSection({ user, C }) {
           )}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal:20, paddingTop:20, paddingBottom:32 }}>
+        {payStep === "checkout" && Platform.OS !== "web" && checkoutUrl && (
+          <>
+            <WebView source={{ uri: checkoutUrl }} style={{ flex:1 }} />
+            <TouchableOpacity onPress={verifyCampaignPayment} style={{ margin:16, backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center" }}>
+              <Text style={{ color:"#FFF", fontFamily:fonts.bold, fontSize:15 }}>I've completed payment</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
-          {payStep === "sending" && (
-            <View style={{ alignItems:"center", paddingVertical:40 }}>
-              <ActivityIndicator size="large" color="#1A56DB"/>
-              <Text style={{ fontFamily:fonts.semibold, fontSize:14, color:"#64748B", marginTop:16 }}>Submitting your payment…</Text>
+        {payStep === "checkout" && Platform.OS === "web" && (
+          <View style={{ flex:1, alignItems:"center", justifyContent:"center", padding:24 }}>
+            <Text style={{ textAlign:"center", color:"#64748B", marginBottom:16 }}>
+              Complete your payment in the tab that opened, then tap below.
+            </Text>
+            <TouchableOpacity onPress={verifyCampaignPayment} style={{ backgroundColor:"#1A56DB", borderRadius:14, paddingHorizontal:28, paddingVertical:14 }}>
+              <Text style={{ color:"#FFF", fontFamily:fonts.bold }}>I've completed payment</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {payStep === "sending" && (
+          <View style={{ flex:1, alignItems:"center", justifyContent:"center" }}>
+            <ActivityIndicator size="large" color="#1A56DB"/>
+            <Text style={{ marginTop:12, color:"#64748B" }}>Verifying payment…</Text>
+          </View>
+        )}
+
+        {payError && payStep === "checkout" && (
+          <Text style={{ color:"#EF4444", textAlign:"center", padding:8 }}>{payError}</Text>
+        )}
+
+        {payStep === "success" && (
+          <View style={{ flex:1, alignItems:"center", justifyContent:"center", padding:24 }}>
+            <View style={{ width:72, height:72, borderRadius:36, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
+              <Text style={{ fontSize:36 }}>✅</Text>
             </View>
-          )}
-
-          {payStep === "success" && (
-            <View style={{ alignItems:"center", paddingVertical:16 }}>
-              <View style={{ width:72, height:72, borderRadius:36, backgroundColor:"#F0FDF4", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
-                <Text style={{ fontSize:36 }}>✅</Text>
-              </View>
-              <Text style={{ fontFamily:fonts.bold, fontSize:20, color:"#0F172A", textAlign:"center", marginBottom:8 }}>Payment Submitted!</Text>
-              <Text style={{ fontSize:14, color:"#64748B", textAlign:"center", lineHeight:22, marginBottom:20 }}>
-                {"We've received your campaign request.\nWe'll verify your transfer and launch your campaign within "}
-                <Text style={{ fontWeight:"700", color:"#10B981" }}>1–6 hours</Text>.
-              </Text>
-              <View style={{ backgroundColor:"#F0FDF4", borderRadius:14, padding:16, width:"100%", marginBottom:12 }}>
-  {[
-    "We check transfers manually throughout the day",
-    "You'll get a notification when your campaign goes live",
-    "Contact support if not activated within 6 hours",
-  ].map((msg, i) => (
-    <View key={i} style={{ flexDirection:"row", gap:10, paddingVertical:6 }}>
-      <Text style={{ color:"#10B981" }}>✓</Text>
-      <Text style={{ fontSize:13, color:"#0F172A", flex:1 }}>{msg}</Text>
-    </View>
-  ))}
-</View>
-<View style={{ backgroundColor:"#FEF9C3", borderRadius:12, padding:12, width:"100%", marginBottom:20 }}>
-  <Text style={{ fontSize:13, color:"#92400E", textAlign:"center" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
-</View>
-              <TouchableOpacity
-                onPress={handlePaymentSuccess}
-                style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Got it, I'll wait</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {payStep === "bank" && (
-            <>
-              <View style={{ backgroundColor:"#0F172A", borderRadius:18, padding:20, marginBottom:20, alignItems:"center" }}>
-                <Text style={{ fontSize:13, color:"rgba(255,255,255,0.6)", marginBottom:4 }}>Campaign advertising fee</Text>
-                <Text style={{ fontFamily:fonts.black, fontSize:36, color:"#FFF" }}>₦{amountNGN.toLocaleString()}</Text>
-                <Text style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4 }}>Includes ₦200 service charge · One-time per campaign</Text>
-              </View>
-
-              <View style={{ backgroundColor:"#F8FAFF", borderRadius:16, padding:16, marginBottom:14, borderWidth:1.5, borderColor:"#E2E8F0" }}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#1A56DB", marginBottom:12 }}>
-                  Step 1 — Transfer ₦{amountNGN.toLocaleString()} to this account
-                </Text>
-                {[
-                  { l:"Bank",           v:"Sterling Bank"          },
-                  { l:"Account Number", v:"0144524670"              },
-                  { l:"Account Name",   v:"PROMO EARN DIGITAL HUB" },
-                  { l:"Amount",         v:`₦${amountNGN.toLocaleString()}` },
-                ].map((row, i) => (
-                  <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:8, borderBottomWidth:i<3?1:0, borderBottomColor:"#E2E8F0" }}>
-                    <Text style={{ fontSize:13, color:"#64748B" }}>{row.l}</Text>
-                    <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#0F172A" }}>{row.v}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={{ backgroundColor:"#EEF4FF", borderRadius:16, padding:16, marginBottom:20, borderWidth:1.5, borderColor:"#C7D7FA" }}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:13, color:"#1A56DB", marginBottom:4 }}>
-                  Step 2 — Enter your sender's name
-                </Text>
-                <Text style={{ fontSize:12, color:"#4B6CB7", marginBottom:12, lineHeight:18 }}>
-                  Enter the name on the bank account you transferred from. We'll use this to find your payment.
-                </Text>
-                <TextInput
-                  value={senderName}
-                  onChangeText={setSenderName}
-                  placeholder="e.g. John Adebayo"
-                  placeholderTextColor="#94A3B8"
-                  autoCapitalize="words"
-                  style={{
-                    backgroundColor:"#FFF", borderRadius:12, borderWidth:1.5,
-                    borderColor: senderName.trim() ? "#1A56DB" : "#E2E8F0",
-                    paddingHorizontal:14, paddingVertical:12,
-                    fontSize:15, color:"#0F172A",
-                  }}
-                />
-                <Text style={{ fontSize:11, color:"#EF4444", marginTop:8, fontWeight:"600" }}>
-                  ⚠️ This field is required — we need it to match your transfer.
-                </Text>
-              </View>
-
-              {payError ? (
-                <View style={{ backgroundColor:"#FEF2F2", borderRadius:12, padding:12, marginBottom:12 }}>
-                  <Text style={{ fontSize:13, color:"#EF4444" }}>⚠️ {payError}</Text>
-                </View>
-              ) : null}
-
-              <TouchableOpacity
-                onPress={handleConfirmTransfer}
-                style={{ backgroundColor:"#1A56DB", borderRadius:14, height:54, alignItems:"center", justifyContent:"center" }}
-                activeOpacity={0.85}>
-                <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>✅ I've Transferred — Submit</Text>
-              </TouchableOpacity>
-              <View style={{ backgroundColor:"#FEF9C3", borderRadius:12, padding:12, marginTop:12, marginBottom:4 }}>
-  <Text style={{ fontSize:13, color:"#92400E", textAlign:"center" }}>🎁 You will receive your bonus after admin approves your campaign</Text>
-</View>
-<Text style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:8 }}>
-  Campaign launches within 1–6 hours · contact.promoearn@gmail.com for support
-</Text>
-            </>
-          )}
-
-        </ScrollView>
+            <Text style={{ fontFamily:fonts.bold, fontSize:20, color:"#0F172A", textAlign:"center", marginBottom:8 }}>Payment Confirmed!</Text>
+            <Text style={{ fontSize:14, color:"#64748B", textAlign:"center", lineHeight:22, marginBottom:20 }}>
+              Your campaign is now in review and will go live within 24 hours of approval.
+            </Text>
+            <TouchableOpacity
+              onPress={handlePaymentSuccess}
+              style={{ backgroundColor:"#1A56DB", borderRadius:14, height:52, alignItems:"center", justifyContent:"center", width:"100%" }}>
+              <Text style={{ fontFamily:fonts.bold, fontSize:15, color:"#FFF" }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   </Modal>
@@ -949,7 +857,7 @@ function MyCampaignsSection({ user, C }) {
   const fetchMyCampaigns = async () => {
     setLoading(true);
     try {
-      const res = await api("/campaigns/my");
+      const res = await apiClient("/campaigns/my");
       if (res.success) setCampaigns(res.data.campaigns || []);
     } catch {}
     finally { setLoading(false); }
@@ -1178,13 +1086,10 @@ function TaskProofModal({ visible, task, onClose, onSubmitted, C }) {
     if (!proofUri || !proofBase64) { setError("Please upload a screenshot as proof first."); return; }
     setSubmitting(true); setError(null);
     try {
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/tasks/${task.id}/submit-proof`, {
+      const data = await apiClient(`/tasks/${task.id}/submit-proof`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId: task.id, taskTitle: task.title || "", base64Image: proofBase64 }),
+        body: { taskId: task.id, taskTitle: task.title || "", base64Image: proofBase64 },
       });
-      const data = await res.json();
       if (data.success) { setSubmitted(true); }
       else { setError(data.message || "Submission failed. Please try again."); }
     } catch { setError("Network error. Please check your connection."); }
@@ -1362,7 +1267,7 @@ export default function PromoSpaceScreen({ user, setUser, onUpgrade, C:CProp, la
 const fetchTasks = async () => {
   setLoading(true);
   try {
-    const r = await api("/tasks");
+    const r = await apiClient("/tasks");
     if (r.success) {
       setTasks(r.data.tasks);
       const serverIds   = r.data.completedTaskIds || [];

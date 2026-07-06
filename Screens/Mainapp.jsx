@@ -4,6 +4,8 @@
  * Fully connected to backend API
  */
 // import { PanResponder } from "react-native";
+import Constants from "expo-constants";
+import { apiClient } from "../services/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import PromoSpaceScreen from "./PromoSpaceScreen";
@@ -11,6 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import NotificationsListScreen from "./NotificationsListScreen";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+// import { Platform } from "react-native";
 // import * as ImagePicker from "expo-image-picker";
 import { loadSavedAccounts } from "./PayoutMethodsscreen";
 import PayoutMethodsScreen from "./PayoutMethodsscreen";
@@ -1122,20 +1125,6 @@ const TASK_TYPES = [
   },
 ];
 
-// ── API Helper ─────────────────────────────────────────────────────────────
-const api = async (endpoint, options = {}) => {
-  const token = await AuthService.getToken();
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  return res.json();
-};
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const Ico = {
@@ -3111,7 +3100,7 @@ const PremiumModal = ({ visible, onProceed, onClose }) => (
             </View>
           ))}
         </View>
-        <Text style={pm.hint}>Secured by Paystack</Text>
+        <Text style={pm.hint}>Secured by Flutterwave.</Text>
       </View>
     </View>
   </Modal>
@@ -3228,452 +3217,120 @@ const pm = StyleSheet.create({
   },
 });
 
-// ── Paystack Modal ─────────────────────────────────────────────────────────
-// ── Paystack Modal ─────────────────────────────────────────────────────────
-// Replace your entire PaystackModal component with this version.
-// Works on BOTH web (opens in browser tab) and mobile (uses WebView).
-
-// ── Manual Bank Transfer Modal ──────────────────────────────────────────────
-// ── Manual Bank Transfer Modal ──────────────────────────────────────────────
-// REPLACE the entire PaystackModal component in MainApp.jsx with this.
-const PaystackModal = ({ visible, user, onSuccess, onClose }) => {
-  const [step, setStep] = useState("info");
-  const [submitting, setSubmitting] = useState(false);
+const FlutterwaveModal = ({ visible, user, onSuccess, onClose }) => {
+  const [step, setStep] = useState("idle");
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
+  const [reference, setReference] = useState(null);
   const [error, setError] = useState(null);
-  const [senderName, setSenderName] = useState("");
 
   useEffect(() => {
-    if (!visible) {
-      setStep("info");
+    if (visible) {
+      setStep("loading");
       setError(null);
-      setSubmitting(false);
-      setSenderName("");
+      startCheckout();
+    } else {
+      setStep("idle");
+      setCheckoutUrl(null);
     }
   }, [visible]);
 
-  const BANK = {
-    name: "Sterling Bank",
-    account: "0144524670",
-    holder: "PROMO EARN DIGITAL HUB",
-    amount: "₦4,500",
-  };
-
-  const handleSubmit = async () => {
-    if (!senderName.trim()) {
-      setError("Please enter the sender's name before submitting.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const startCheckout = async () => {
     try {
-      const token = await AuthService.getToken();
-      const res = await fetch(`${BASE_URL}/payments/manual-activation`, {
+      const data = await apiClient("/payments/create-checkout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          userId: user?.uid,
-          email: user?.email,
-          senderName: senderName.trim(),
-        }),
+        body: { userId: user?.uid, email: user?.email },
       });
-      const data = await res.json();
       if (data.success) {
-        setStep("submitted");
+        setCheckoutUrl(data.url);
+        setReference(data.reference);
+        setStep("webview");
+        if (Platform.OS === "web") window.open(data.url, "_blank");
       } else {
-        setError(data.message || "Submission failed. Please try again.");
+        setError(data.message || "Could not start payment.");
+        setStep("error");
       }
     } catch {
-      setError("Network error. Please check your connection.");
-    } finally {
-      setSubmitting(false);
+      setError("Network error. Please try again.");
+      setStep("error");
+    }
+  };
+
+  const verifyNow = async () => {
+    setStep("verifying");
+    try {
+      const data = await apiClient("/payments/verify-payment", {
+        method: "POST",
+        body: { reference },
+      });
+      if (data.success) {
+        onSuccess();
+      } else {
+        setError(data.message || "Payment not confirmed yet. If you completed it, wait a moment and try again.");
+        setStep("webview");
+      }
+    } catch {
+      setError("Network error verifying payment.");
+      setStep("webview");
     }
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.55)",
-          justifyContent: "flex-end",
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: "#FFFFFF",
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            paddingBottom: Platform.OS === "ios" ? 44 : 28,
-            maxHeight: "92%",
-          }}
-        >
-          <View
-            style={{
-              width: 40,
-              height: 4,
-              backgroundColor: "#E2E8F0",
-              borderRadius: 2,
-              alignSelf: "center",
-              marginTop: 12,
-            }}
-          />
-
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "#E2E8F0",
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fonts.black,
-                fontSize: 18,
-                color: "#0F172A",
-              }}
-            >
-              {step === "submitted" ? "✅ Submitted!" : "Activate Account"}
-            </Text>
-            <TouchableOpacity
-              onPress={onClose}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
-                backgroundColor: "#F8FAFF",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, height: "90%" }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" }}>
+            <Text style={{ fontFamily: fonts.black, fontSize: 17, color: "#0F172A" }}>Activate Account</Text>
+            <TouchableOpacity onPress={onClose} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "#F8FAFF", alignItems: "center", justifyContent: "center" }}>
               <Text style={{ fontSize: 18, color: "#64748B" }}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-              paddingTop: 20,
-              paddingBottom: 32,
-            }}
-          >
-            {step === "submitted" ? (
-              /* ── Success ── */
-              <View style={{ alignItems: "center", paddingVertical: 16 }}>
-                <View
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 36,
-                    backgroundColor: "#F0FDF4",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 16,
-                  }}
-                >
-                  <Text style={{ fontSize: 36 }}>✅</Text>
-                </View>
-                <Text
-                  style={{
-                    fontFamily: fonts.bold,
-                    fontSize: 20,
-                    color: "#0F172A",
-                    textAlign: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  Payment Submitted!
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: "#64748B",
-                    textAlign: "center",
-                    lineHeight: 22,
-                    marginBottom: 20,
-                  }}
-                >
-                  We've received your request.{"\n"}Your account will be
-                  activated within{" "}
-                  <Text style={{ fontWeight: "700", color: "#10B981" }}>
-                    1–6 hours
-                  </Text>{" "}
-                  once we confirm your transfer.
-                </Text>
+          {step === "loading" && (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator size="large" color="#1A56DB" />
+              <Text style={{ marginTop: 12, color: "#64748B" }}>Preparing secure checkout…</Text>
+            </View>
+          )}
 
-                <View
-                  style={{
-                    backgroundColor: "#F0FDF4",
-                    borderRadius: 14,
-                    padding: 16,
-                    width: "100%",
-                    marginBottom: 20,
-                  }}
-                >
-                  {[
-                    "We check transfers manually throughout the day",
-                    "You'll get a notification when activated",
-                    "Contact support if not activated within 6 hours",
-                  ].map((t, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        flexDirection: "row",
-                        gap: 10,
-                        paddingVertical: 6,
-                      }}
-                    >
-                      <Text style={{ color: "#10B981" }}>✓</Text>
-                      <Text style={{ fontSize: 13, color: "#0F172A", flex: 1 }}>
-                        {t}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+          {step === "webview" && Platform.OS !== "web" && checkoutUrl && (
+            <>
+              <WebView source={{ uri: checkoutUrl }} style={{ flex: 1 }} />
+              <TouchableOpacity onPress={verifyNow} style={{ margin: 16, backgroundColor: "#1A56DB", borderRadius: 14, height: 50, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: "#FFF", fontFamily: fonts.bold }}>I've completed payment</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={{
-                    backgroundColor: "#1A56DB",
-                    borderRadius: 14,
-                    height: 52,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "100%",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.bold,
-                      fontSize: 15,
-                      color: "#FFF",
-                    }}
-                  >
-                    Got it, I'll wait
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* ── Instructions ── */
-              <>
-                {/* Amount banner */}
-                <View
-                  style={{
-                    backgroundColor: "#0F172A",
-                    borderRadius: 18,
-                    padding: 20,
-                    marginBottom: 20,
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.6)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    One-time activation fee
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: fonts.black,
-                      fontSize: 36,
-                      color: "#FFF",
-                    }}
-                  >
-                    ₦4,500
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: "rgba(255,255,255,0.5)",
-                      marginTop: 4,
-                    }}
-                  >
-                    ≈ $3.00 USD · One-time · Never charged again
-                  </Text>
-                </View>
+          {step === "webview" && Platform.OS === "web" && (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+              <Text style={{ textAlign: "center", color: "#64748B", marginBottom: 16 }}>
+                Complete your payment in the tab that opened. Once done, tap below.
+              </Text>
+              <TouchableOpacity onPress={verifyNow} style={{ backgroundColor: "#1A56DB", borderRadius: 14, paddingHorizontal: 28, paddingVertical: 14 }}>
+                <Text style={{ color: "#FFF", fontFamily: fonts.bold }}>I've completed payment</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-                {/* Step 1 — Bank details */}
-                <View
-                  style={{
-                    backgroundColor: "#F8FAFF",
-                    borderRadius: 16,
-                    padding: 16,
-                    marginBottom: 14,
-                    borderWidth: 1.5,
-                    borderColor: "#E2E8F0",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.bold,
-                      fontSize: 13,
-                      color: "#1A56DB",
-                      marginBottom: 12,
-                    }}
-                  >
-                    Step 1 — Transfer ₦4,500 to this account
-                  </Text>
-                  {[
-                    { l: "Bank", v: BANK.name },
-                    { l: "Account Number", v: BANK.account },
-                    { l: "Account Name", v: BANK.holder },
-                    { l: "Amount", v: BANK.amount },
-                  ].map((row, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        paddingVertical: 8,
-                        borderBottomWidth: i < 3 ? 1 : 0,
-                        borderBottomColor: "#E2E8F0",
-                      }}
-                    >
-                      <Text style={{ fontSize: 13, color: "#64748B" }}>
-                        {row.l}
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: fonts.bold,
-                          fontSize: 13,
-                          color: "#0F172A",
-                        }}
-                      >
-                        {row.v}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+          {step === "verifying" && (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator size="large" color="#1A56DB" />
+              <Text style={{ marginTop: 12, color: "#64748B" }}>Verifying payment…</Text>
+            </View>
+          )}
 
-                {/* Step 2 — Sender's name */}
-                <View
-                  style={{
-                    backgroundColor: "#EEF4FF",
-                    borderRadius: 16,
-                    padding: 16,
-                    marginBottom: 20,
-                    borderWidth: 1.5,
-                    borderColor: "#C7D7FA",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.bold,
-                      fontSize: 13,
-                      color: "#1A56DB",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Step 2 — Enter your sender's name
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: "#4B6CB7",
-                      marginBottom: 12,
-                      lineHeight: 18,
-                    }}
-                  >
-                    Enter the name on the bank account you transferred from.
-                    We'll use this to find your payment.
-                  </Text>
-                  <TextInput
-                    value={senderName}
-                    onChangeText={setSenderName}
-                    placeholder="e.g. John Adebayo"
-                    placeholderTextColor="#94A3B8"
-                    autoCapitalize="words"
-                    style={{
-                      backgroundColor: "#FFF",
-                      borderRadius: 12,
-                      borderWidth: 1.5,
-                      borderColor: senderName.trim() ? "#1A56DB" : "#E2E8F0",
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
-                      fontSize: 15,
-                      color: "#0F172A",
-                      fontFamily: fonts.medium,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: "#EF4444",
-                      marginTop: 8,
-                      fontWeight: "600",
-                    }}
-                  >
-                    ⚠️ This field is required — we need it to match your
-                    transfer.
-                  </Text>
-                </View>
+          {step === "error" && (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+              <Text style={{ color: "#EF4444", textAlign: "center", marginBottom: 16 }}>{error}</Text>
+              <TouchableOpacity onPress={startCheckout} style={{ backgroundColor: "#1A56DB", borderRadius: 14, paddingHorizontal: 28, paddingVertical: 14 }}>
+                <Text style={{ color: "#FFF", fontFamily: fonts.bold }}>Try Again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-                {error && (
-                  <View
-                    style={{
-                      backgroundColor: "#FEF2F2",
-                      borderRadius: 12,
-                      padding: 12,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, color: "#EF4444" }}>
-                      ⚠️ {error}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Submit */}
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: submitting ? "#94A3B8" : "#1A56DB",
-                    borderRadius: 14,
-                    height: 54,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  onPress={handleSubmit}
-                  disabled={submitting}
-                  activeOpacity={0.85}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text
-                      style={{
-                        fontFamily: fonts.bold,
-                        fontSize: 15,
-                        color: "#FFF",
-                      }}
-                    >
-                      ✅ I've Transferred — Submit
-                    </Text>
-                  )}
-                </TouchableOpacity>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: "#94A3B8",
-                    textAlign: "center",
-                    marginTop: 10,
-                  }}
-                >
-                  Activation takes 1–6 hours · contact.promoearn@gmail.com for
-                  support
-                </Text>
-              </>
-            )}
-          </ScrollView>
+          {error && step === "webview" && (
+            <Text style={{ color: "#EF4444", textAlign: "center", padding: 8 }}>{error}</Text>
+          )}
         </View>
       </View>
     </Modal>
@@ -4279,26 +3936,15 @@ function TaskProofModal({ visible, task, onClose, onSubmitted, C }) {
     setSubmitting(true);
     setError(null);
     try {
-      const token = await AuthService.getToken();
+      
 
-      const res = await fetch(`${BASE_URL}/tasks/${task.id}/submit-proof`, {
+    
+      const data = await apiClient(`/tasks/${task.id}/submit-proof`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          taskId: task.id,
-          taskTitle: task.title || "",
-          base64Image: proofBase64,
-        }),
+        body: { taskId: task.id, taskTitle: task.title || "", base64Image: proofBase64 },
       });
-      const data = await res.json();
-      if (data.success) {
-        setSubmitted(true);
-      } else {
-        setError(data.message || "Submission failed. Please try again.");
-      }
+      if (data.success) { setSubmitted(true); }
+      else { setError(data.message || "Submission failed. Please try again."); }
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
@@ -4932,8 +4578,8 @@ function HomeScreen({
 
     try {
       const [tasksRes, leadersRes] = await Promise.all([
-        api("/tasks"),
-        fetch(`${BASE_URL}/leaderboard`).then((r) => r.json()),
+        apiClient("/tasks"),
+        apiClient("/leaderboard"),
       ]);
 
 // FIXED
@@ -5893,7 +5539,8 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [selectedSaved, setSelectedSaved] = useState(null); // chosen saved account or null
   const [showSavedList, setShowSavedList] = useState(false);
-
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
   // Manual-entry state (used when no saved account selected)
   const [banks, setBanks] = useState([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
@@ -5941,10 +5588,32 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
     });
   }, []);
 
+  const verifyAccountNumber = async (accNum, bank) => {
+    if (!accNum || accNum.length !== 10 || !bank) return;
+    setVerifying(true);
+    setVerifyError("");
+    setAccountName("");
+    try {
+      const res = await apiClient("/payments/verify-account", {
+        method: "POST",
+        body: { accountNumber: accNum, bankCode: bank.code },
+      });
+      if (res.success) {
+        setAccountName(res.data.accountName);
+      } else {
+        setVerifyError(res.message || "Could not verify account.");
+      }
+    } catch {
+      setVerifyError("Network error verifying account.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const fetchBanks = async () => {
     setLoadingBanks(true);
     try {
-      const res = await api("/payments/banks");
+      const res = await apiClient("/payments/banks");
       if (res.success) setBanks(res.data.banks);
     } catch {
     } finally {
@@ -5978,7 +5647,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const handleSubmit = async () => {
     setError("");
     const amt = parseFloat(amount);
-    if (!amt || amt < 3.5) {
+    if (!amt || amt < 0.1) {
       setError("Minimum withdrawal is $3.50.");
       return;
     }
@@ -5993,7 +5662,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
 
     setSubmitting(true);
     try {
-      const res = await api("/payments/withdraw", {
+      const res = await apiClient("/payments/withdraw", {
         method: "POST",
         body: {
           amount: amt,
@@ -6517,51 +6186,35 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
               maxLength={10}
               value={accountNumber}
               onChangeText={(v) => {
-                setAccountNumber(v.replace(/\D/g, ""));
+                const num = v.replace(/\D/g, "");
+                setAccountNumber(num);
                 setAccountName("");
                 setError("");
+                if (num.length === 10 && selectedBank) {
+                  verifyAccountNumber(num, selectedBank);
+                }
               }}
             />
           </View>
 
           {/* Account Name — typed manually */}
-          <Text
-            style={{
-              fontFamily: fonts.semibold,
-              fontSize: 11,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginBottom: 8,
-            }}
-          >
-            Account Name
-          </Text>
-          <View
-            style={{
-              backgroundColor: C.input,
-              borderRadius: 12,
-              borderWidth: 1.5,
-              paddingHorizontal: 14,
-              height: 52,
-              marginBottom: 6,
-              borderColor: accountName ? C.green : C.border,
-              justifyContent: "center",
-            }}
-          >
-            <TextInput
-              style={{ fontFamily: fonts.medium, fontSize: 15, color: C.dark }}
-              placeholder="Enter your account name"
-              placeholderTextColor={C.slate}
-              autoCapitalize="words"
-              value={accountName}
-              onChangeText={(v) => {
-                setAccountName(v);
-                setError("");
-              }}
-            />
-          </View>
-        </>
+          {verifying && (
+  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+    <ActivityIndicator size="small" color={C.blue} />
+    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: C.muted }}>
+      Verifying account…
+    </Text>
+  </View>
+)}
+
+{verifyError && (
+  <View style={{ backgroundColor: "#FFF5F5", borderRadius: 10, padding: 10, marginBottom: 14 }}>
+    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: C.red }}>
+      ⚠️ {verifyError}
+    </Text>
+  </View>
+)}
+              </>
       )}
 
       {/* Account name confirmation row */}
@@ -6755,7 +6408,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
       <TouchableOpacity
         style={{
           backgroundColor:
-            !accountName || !amount || parseFloat(amount) < 3.5 || submitting
+            !accountName || !amount || parseFloat(amount) < 0.15 || submitting
               ? C.border
               : C.green,
           borderRadius: 14,
@@ -6765,7 +6418,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
         }}
         onPress={handleSubmit}
         disabled={
-          !accountName || !amount || parseFloat(amount) < 3.5 || submitting
+          !accountName || !amount || parseFloat(amount) < 0.15 || submitting
         }
         activeOpacity={0.85}
       >
@@ -6777,7 +6430,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
               fontFamily: fonts.bold,
               fontSize: 15,
               color:
-                !accountName || !amount || parseFloat(amount) < 3.5
+                !accountName || !amount || parseFloat(amount) < 0.15
                   ? C.muted
                   : "#fff",
             }}
@@ -7080,6 +6733,9 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
                     setSelectedBank(bank);
                     setShowBankList(false);
                     setBankSearch("");
+                    if (accountNumber.length === 10) {
+                      verifyAccountNumber(accountNumber, bank);
+                    }
                   }}
                   activeOpacity={0.7}
                   style={{
@@ -7189,7 +6845,7 @@ function WalletScreen({
 
   const fetchTransactions = async () => {
     try {
-      const res = await api("/payments/transactions");
+      const res = await apiClient("/payments/transactions");
       if (res.success) {
         setTransactions(res.data.transactions);
         const w = res.data.transactions
@@ -7221,7 +6877,7 @@ function WalletScreen({
     }
     setSubmitting(true);
     try {
-      const res = await api("/payments/withdraw", {
+      const res = await apiClient("/payments/withdraw", {
         method: "POST",
         body: {
           amount,
@@ -7836,7 +7492,7 @@ function ReferralScreen({ user, onUpgrade, C, language, t }) {
 
   const fetchReferrals = async () => {
     try {
-      const res = await api("/referrals/mine");
+      const res = await apiClient("/referrals/mine");
       if (res.success) {
         setReferrals(res.data.referrals);
         setEarnings(res.data.referralEarnings || 0);
@@ -8282,7 +7938,7 @@ function ProfileScreen({
     }
     setSendingFeedback(true);
     try {
-      await api("/feedback", {
+      await apiClient("/feedback", {
         method: "POST",
         body: {
           message: feedbackText,
@@ -9324,7 +8980,7 @@ export default function MainApp({ onLogout, initialUser }) {
 
   const fetchUnreadCount = async () => {
     try {
-      const res = await api("/notifications");
+      const res = await apiClient("/notifications");
       if (res.success) setUnreadCount(res.data.unreadCount);
     } catch {}
   };
@@ -9393,14 +9049,9 @@ export default function MainApp({ onLogout, initialUser }) {
       }
       if (finalStatus !== "granted") return;
       const token = (await Notifications.getExpoPushTokenAsync()).data;
-      const authToken = await AuthService.getToken();
-      await fetch(`${BASE_URL}/notifications/push-token`, {
+      await apiClient("/notifications/push-token", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ pushToken: token }),
+        body: { pushToken: token },
       });
     } catch (err) {
       console.error("Push notification registration error:", err);
@@ -9508,13 +9159,12 @@ export default function MainApp({ onLogout, initialUser }) {
         C={C}
         darkMode={darkMode}
       />
-
-      <PaystackModal
-        visible={showStripe}
-        user={user}
-        onSuccess={onPaid}
-        onClose={() => setShowStripe(false)}
-      />
+<FlutterwaveModal
+  visible={showStripe}
+  user={user}
+  onSuccess={onPaid}
+  onClose={() => setShowStripe(false)}
+/>
 
       {/* PIN modal — shown globally so it works from any tab */}
       <PinModal

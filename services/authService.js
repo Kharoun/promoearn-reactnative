@@ -5,6 +5,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 const BASE_URL = "https://promoearn-backend.onrender.com/api/v1/auth"
 
 // ─── Token Management ─────────────────────────────────────────────────────────
@@ -31,7 +32,12 @@ const TokenStore = {
 
 const request = async (endpoint, options = {}) => {
   const url = `${BASE_URL}${endpoint}`;
-  const headers = { "Content-Type": "application/json", ...options.headers };
+  const headers = { 
+    "Content-Type": "application/json", 
+    "x-app-version": Constants.expoConfig?.version || "1.0.0",
+    "x-platform": Platform.OS,
+    ...options.headers,
+  };
 
   if (options.auth !== false) {
     const token = await TokenStore.getAccess();
@@ -64,7 +70,7 @@ const request = async (endpoint, options = {}) => {
   }
 
   if (!res.ok) {
-    return { success: false, message: data.message || `Error ${res.status}`, errors: data.errors };
+    return { success: false, message: data.message || `Error ${res.status}`, code: data.code, data: data.data, errors: data.errors };
   }
 
   return data;
@@ -100,7 +106,10 @@ const AuthService = {
     const data = await request("/login", {
       method: "POST",
       body: { identifier, password },
-      headers: { "x-app-version": Constants.expoConfig?.version || "1.0.0" },
+      headers: { 
+        "x-app-version": Constants.expoConfig?.version || "1.0.0",
+        "x-platform": Platform.OS, // 'web' | 'ios' | 'android'
+      },
       auth: false,
     });
     if (data.success && data.data?.accessToken) {
