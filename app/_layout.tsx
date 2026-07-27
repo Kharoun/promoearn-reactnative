@@ -12,23 +12,29 @@ import {
 } from "@expo-google-fonts/poppins";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthService from "../services/authService";
+import FeatureAnnouncementModal, { shouldShowVtuAnnouncement } from "../Screens/FeatureAnnouncementModal";
+import { BiometricAuth } from "../services/biometricAuth";
 
-import SplashScreen         from "../Screens/SplashScreen";
+// import SplashScreen         from "../Screens/SplashScreen";
 import LoginScreen          from "../Screens/LoginScreen";
 import SignUpScreen         from "../Screens/SignUpScreen";
 import VerifyOTPScreen      from "../Screens/VerifyOTPScreen";
 import ForgotPasswordScreen from "../Screens/ForgotPasswordScreen";
+import CommunityPopup from "../Screens/Communitypopup";
 import Mainapp              from "../Screens/Mainapp";
 import * as ExpoSplashScreen from "expo-splash-screen";
 
 type Screen = "splash" | "signup" | "login" | "verify" | "app" | "forgot";
 
 export default function RootLayout() {
-  const [screen,      setScreen]      = useState<Screen>("splash");
+  const [screen, setScreen] = useState<Screen>("app");
+  const [authChecked, setAuthChecked] = useState(false);
   const [verifyEmail, setVerifyEmail] = useState("");
   const [verifyPhone, setVerifyPhone] = useState("");
+  const [showVtuAnnouncement, setShowVtuAnnouncement] = useState(false);
+  const [pendingVtuAction, setPendingVtuAction] = useState<"airtime" | "data" | null>(null);
   const [verifyMode,  setVerifyMode]  = useState<"email" | "phone">("email");
-
+  const [showCommunity, setShowCommunity] = useState(false);
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -38,10 +44,49 @@ export default function RootLayout() {
     Poppins_900Black,
   });
 
+  // Chain: after the community popup closes, check if the VTU announcement is due
+  const handleCommunityClose = async () => {
+    setShowCommunity(false);
+    const due = await shouldShowVtuAnnouncement();
+    if (due) setShowVtuAnnouncement(true);
+  };
+
   useEffect(() => {
     ExpoSplashScreen.hideAsync();
+    (async () => {
+      const loggedIn = await AuthService.isLoggedIn();
+      if (!loggedIn) {
+        const bioEnabled = await BiometricAuth.isEnabled();
+        if (bioEnabled) {
+          const success = await BiometricAuth.authenticate();
+          if (success) {
+            const token = await BiometricAuth.getStoredToken();
+            const refreshed = await AuthService.refreshSessionWithToken?.(token);
+            if (refreshed) { setScreen("app"); setAuthChecked(true); return; }
+          }
+        }
+        setScreen("login"); setAuthChecked(true); return;
+      }
+      const expired = await AuthService.isSessionExpired();
+      if (expired) {
+        await AuthService.clearSession();
+        setScreen("login");
+        setAuthChecked(true);
+        return;
+      }
+      setScreen("app");
+      setAuthChecked(true);
+    })();
   }, []);
-  
+
+  useEffect(() => {
+    if (screen === "app") {
+      setShowCommunity(true);
+    } else {
+      setShowCommunity(false);
+    }
+  }, [screen]);
+
   useEffect(() => {
     const { AppState } = require("react-native");
     const sub = AppState.addEventListener("change", async (nextState: string) => {
@@ -50,13 +95,15 @@ export default function RootLayout() {
         if (expired) {
           await AuthService.clearSession();
           setScreen("login");
+          return;
         }
+        setShowCommunity(true);
       }
     });
     return () => sub.remove();
   }, [screen]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !authChecked) {
     return (
       <SafeAreaProvider>
         <View style={{ flex:1, alignItems:"center", justifyContent:"center", backgroundColor:"#F8FAFF" }}>
@@ -67,20 +114,6 @@ export default function RootLayout() {
   }
 
   const renderScreen = () => {
-    if (screen === "splash") {
-      return <SplashScreen onFinish={async () => {
-        const loggedIn = await AuthService.isLoggedIn();
-        if (!loggedIn) { setScreen("login"); return; }
-        const expired = await AuthService.isSessionExpired();
-        if (expired) {
-          await AuthService.clearSession();
-          setScreen("login");
-          return;
-        }
-        setScreen("app");
-      }} />;
-    }
-
     if (screen === "signup") {
       return (
         <SignUpScreen
@@ -134,6 +167,8 @@ export default function RootLayout() {
             await AsyncStorage.removeItem("pe_cached_user");
             setScreen("login");
           }}
+          pendingVtuAction={pendingVtuAction}
+          onConsumePendingVtuAction={() => setPendingVtuAction(null)}
         />
       );
     }
@@ -141,5 +176,27 @@ export default function RootLayout() {
     return null;
   };
 
-  return <SafeAreaProvider>{renderScreen()}</SafeAreaProvider>;
+  return (
+    <SafeAreaProvider>
+      {renderScreen()}
+
+      <CommunityPopup
+        visible={showCommunity && screen === "app"}
+        onClose={handleCommunityClose}
+      />
+
+      <FeatureAnnouncementModal
+        visible={showVtuAnnouncement}
+        onClose={() => setShowVtuAnnouncement(false)}
+        onOpenAirtime={() => {
+          setShowVtuAnnouncement(false);
+          setPendingVtuAction("airtime");
+        }}
+        onOpenData={() => {
+          setShowVtuAnnouncement(false);
+          setPendingVtuAction("data");
+        }}
+      />
+    </SafeAreaProvider>
+  );
 }

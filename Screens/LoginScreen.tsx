@@ -3,11 +3,13 @@
  * Fixed: ForgotPassword as full page, Google error shown properly
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Constants from "expo-constants";
+import { BiometricAuth } from "../services/biometricAuth";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Image,
   KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Linking,
+  Modal, Alert,
 } from "react-native";
 import Svg, { Path, Circle, Rect, Polyline, Line } from "react-native-svg";
 import AuthService from "../services/authService";
@@ -17,6 +19,7 @@ import { fonts } from "../utils/typography";
 const BLUE  = "#1A56DB";
 const DARK  = "#0F172A";
 const WHITE = "#FFFFFF";
+
 
 const Icon = {
   User: ({ size = 18, color = "#94A3B8" }) => (
@@ -110,7 +113,9 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
   const [success,         setSuccess]         = useState("");
   const [updateInfo, setUpdateInfo] = useState(null);
   const [googleInfo,      setGoogleInfo]      = useState(""); // info (not error) for google
-
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [pendingLoginData, setPendingLoginData] = useState(null);
+  
   const fo = (f) => () => setFocused(f);
   const bl = () => setFocused(null);
 
@@ -146,9 +151,15 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
       const result = await AuthService.login(identifier.trim(), password);
       if (result.success) {
         await AuthService.recordLoginTime();
-        setSuccess("Login successful! Redirecting...");
-        setTimeout(() => onLogin(), 600);
-      
+        const supported = await BiometricAuth.isSupported();
+        const alreadyEnabled = await BiometricAuth.isEnabled();
+        if (supported && !alreadyEnabled && result.data?.refreshToken) {
+          setPendingLoginData(result);
+          setShowBiometricPrompt(true);
+        } else {
+          setSuccess("Login successful! Redirecting...");
+          setTimeout(() => onLogin(), 600);
+        }
       } else {
         const msg = result.message || "";
         if (result.code === "UPDATE_REQUIRED") {
@@ -363,6 +374,36 @@ export default function LoginScreen({ onLogin, onSignUp, onForgot }) {
         </View>
 
       </ScrollView>
+      {showBiometricPrompt && (
+  <Modal transparent visible={showBiometricPrompt} animationType="fade">
+    <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24 }}>
+      <View style={{ backgroundColor: "#fff", borderRadius: 16, padding: 20 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: DARK, marginBottom: 8 }}>Enable Face ID / Fingerprint?</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "#64748B", marginBottom: 20 }}>Log in faster next time without typing your password.</Text>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 16 }}>
+          <TouchableOpacity onPress={() => {
+            setShowBiometricPrompt(false);
+            setSuccess("Login successful! Redirecting...");
+            setTimeout(() => onLogin(), 600);
+          }}>
+            <Text style={{ fontFamily: fonts.medium, color: "#64748B" }}>Not now</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={async () => {
+            const success = await BiometricAuth.authenticate();
+            if (success && pendingLoginData?.data?.refreshToken) {
+              await BiometricAuth.enableForUser(pendingLoginData.data.refreshToken);
+            }
+            setShowBiometricPrompt(false);
+            setSuccess("Login successful! Redirecting...");
+            setTimeout(() => onLogin(), 600);
+          }}>
+            <Text style={{ fontFamily: fonts.bold, color: BLUE }}>Enable</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+)}
     </KeyboardAvoidingView>
   );
 }

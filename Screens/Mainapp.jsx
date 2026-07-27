@@ -8,9 +8,14 @@ import Constants from "expo-constants";
 import { apiClient } from "../services/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
-import PromoSpaceScreen from "./PromoSpaceScreen";
+import FeatureAnnouncementModal, { shouldShowVtuAnnouncement } from "./FeatureAnnouncementModal";
+import PromoSpaceScreen, { MyCampaignsSection } from "./PromoSpaceScreen";
+import ActivityHistoryScreen from "./ActivityHistoryScreen";
+import GiftCardModal from "./GiftCardModal";
 import * as ImagePicker from "expo-image-picker";
 import NotificationsListScreen from "./NotificationsListScreen";
+import AirtimeModal from "./AirtimeModal";
+import DataPlanModal from "./DataPlanModal";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 // import { Platform } from "react-native";
@@ -4525,6 +4530,9 @@ function HomeScreen({
   C,
   language,
   t,
+  onNewTaskChange,
+  pendingVtuAction,
+  onConsumePendingVtuAction,
 }) {
   const [tasks, setTasks] = useState([]);
   const [leaders, setLeaders] = useState([]);
@@ -4533,8 +4541,27 @@ function HomeScreen({
   const activeTaskOnDoneRef = useRef(null);
   // const [completedIds, setCompletedIds] = useState([]);
   const [showAllLeaders, setShowAllLeaders] = useState(false);
+  const [showAirtime, setShowAirtime] = useState(false);
+  const [showData, setShowData] = useState(false);
+  const [showVtuAnnouncement, setShowVtuAnnouncement] = useState(false);
+  
+  useEffect(() => {
+    if (pendingVtuAction === "airtime") {
+      setShowAirtime(true);
+      onConsumePendingVtuAction?.();
+    } else if (pendingVtuAction === "data") {
+      setShowData(true);
+      onConsumePendingVtuAction?.();
+    }
+  }, [pendingVtuAction]);
   const [completedIds, setCompletedIds] = useState([]);
+  const [showGiftCard, setShowGiftCard] = useState(false);
   const [rejectedIds,  setRejectedIds]  = useState([]);  
+  const [comingSoonLabel, setComingSoonLabel] = useState(null);
+  const [showMyAds, setShowMyAds] = useState(false);
+  const [showCampaign, setShowCampaign] = useState(false);
+  const [showActivityHistory, setShowActivityHistory] = useState(false);
+  const [hasNewTask, setHasNewTask] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem("pe_completed_tasks").then((raw) => {
@@ -4593,6 +4620,16 @@ if (tasksRes.success) {
   setCompletedIds(serverCompletedIds);
   setRejectedIds(serverRejectedIds);
   setTasks(fetchedTasks);
+
+  // ── New task detection ──
+  try {
+    const seenRaw = await AsyncStorage.getItem("pe_seen_task_ids");
+    const seenIds = seenRaw ? JSON.parse(seenRaw) : [];
+    const currentIds = fetchedTasks.map(t => t.id);
+    const isNew = currentIds.some(id => !seenIds.includes(id));
+    setHasNewTask(isNew);
+    if (onNewTaskChange) onNewTaskChange(isNew);
+  } catch {}
 }
 
       if (leadersRes.success) setLeaders(leadersRes.data.leaders);
@@ -4996,56 +5033,157 @@ if (tasksRes.success) {
       )}
 
       {/* Tasks preview */}
-      <View style={{ paddingHorizontal: 16, marginBottom: 18 }}>
-        <SH
-          title={t("latestTasks")}
-          action={`${t("promoSpace")} →`}
-          onAction={() => onTabChange("promo")}
-          C={C}
-        />
-        {!(user?.isActivated || user?.isAdmin)
-          ? FAKE_TASKS.slice(0, 3).map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                locked={true}
-                completedIds={[]}
-                rejectedIds={rejectedIds} 
-                onStart={() => {}}
-              />
-            ))
-          : tasks.slice(0, 3).map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                locked={false}
-                completedIds={completedIds}
-                rejectedIds={rejectedIds} 
-                onStart={(task, onDone) => {
-                  if (task.requiresProof) {
-                    activeTaskOnDoneRef.current = onDone || null;
-                    setActiveTask(task);
-                    setShowProofModal(true);
-                  } else {
-                    handleStart(task, onDone);
-                  }
-                }}
-              />
-            ))}
-        {(user?.isActivated || user?.isAdmin) && tasks.length === 0 && (
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 13,
-              color: C.muted,
-              textAlign: "center",
-              paddingVertical: 20,
-            }}
-          >
-            {t("noTasksYet")}
-          </Text>
-        )}
-      </View>
+     {/* Quick Actions */}
+{/* Quick Actions */}
+<View style={{ paddingHorizontal: 16, marginBottom: 18 }}>
+  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: C.dark }}>Quick Actions</Text>
+    <TouchableOpacity onPress={() => setShowActivityHistory(true)} activeOpacity={0.7}
+      style={{ backgroundColor: "#FEE2E2", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#EF4444" }}>Activity history</Text>
+    </TouchableOpacity>
+  </View>
+
+  <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+    {[
+      { key: "task",         label: "Task",         icon: "📋", bg: "#DCE9FF", locked: false },
+      { key: "withdraw",     label: "Withdraw",     icon: "💵", bg: "#DCE9FF", locked: false },
+      { key: "myads",        label: "My Ads",        icon: "📢", bg: "#DCE9FF", locked: false },
+      { key: "campaign",     label: "Campaign",      icon: "📣", bg: "#DCE9FF", locked: false },
+      { key: "referral",     label: "Referral",      icon: "🔗", bg: "#DCE9FF", locked: false },
+      { key: "share",        label: "Share & Earn",  icon: "🔗", bg: "#DCFCE7", locked: false },
+      { key: "airtime",      label: "Airtime",       icon: "📱", bg: "#DCE9FF", locked: false },
+      { key: "data",         label: "Data",          icon: "📶", bg: "#DCE9FF", locked: false },
+      { key: "marketplace",  label: "Marketplace",   icon: "🛍️", bg: "#DCE9FF", locked: true },
+      { key: "giftcard", label: "Gift card", icon: "🎁", bg: "#DCE9FF", locked: false },
+    ].map((qa, index) => (
+      <TouchableOpacity
+        key={qa.key}
+        activeOpacity={0.8}
+        onPress={() => {
+          if (qa.locked) {
+            setComingSoonLabel(qa.label);
+            return;
+          }
+          if (qa.key === "task") onTabChange("promo");
+          else if (qa.key === "withdraw") onTabChange("wallet");
+          else if (qa.key === "myads") setShowMyAds(true);
+          else if (qa.key === "campaign") setShowCampaign(true);
+          else if (qa.key === "referral") onTabChange("referral");
+          else if (qa.key === "share") onTabChange("referral");
+          else if (qa.key === "giftcard") setShowGiftCard(true);
+          else if (qa.key === "airtime") setShowAirtime(true);
+          else if (qa.key === "data") setShowData(true);
+        }}
+        style={{
+          width: "25%",
+          alignItems: "center",
+          marginBottom: 16,
+          paddingHorizontal: 4,
+        }}
+      >
+        <View style={{
+          width: 60, height: 60, borderRadius: 18, backgroundColor: qa.bg,
+          alignItems: "center", justifyContent: "center", position: "relative",
+          marginBottom: 6,
+        }}>
+          <Text style={{ fontSize: 24 }}>{qa.icon}</Text>
+          {qa.locked && (
+            <View style={{
+              position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: 9,
+              backgroundColor: "#94A3B8", alignItems: "center", justifyContent: "center",
+              borderWidth: 2, borderColor: C.bg,
+            }}>
+              {/* lock icon unchanged */}
+            </View>
+          )}
+        </View>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: fonts.medium, fontSize: 11, color: C.dark, textAlign: "center" }}
+        >
+          {qa.label}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+</View>
+
+      {/* Coming Soon popup */}
+      <Modal visible={!!comingSoonLabel} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", paddingHorizontal: 40 }}>
+          <View style={{ backgroundColor: C.card, borderRadius: 22, padding: 26, alignItems: "center", width: "100%" }}>
+            <Text style={{ fontSize: 30, marginBottom: 10 }}>🚧</Text>
+            <Text style={{ fontFamily: fonts.black, fontSize: 18, color: C.dark, marginBottom: 6 }}>Coming Soon</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: C.muted, textAlign: "center", marginBottom: 20 }}>
+              {comingSoonLabel} isn't available yet — we're working on it!
+            </Text>
+            <TouchableOpacity onPress={() => setComingSoonLabel(null)} style={{
+              backgroundColor: C.blue, borderRadius: 14, paddingHorizontal: 28, paddingVertical: 12,
+            }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: "#FFF" }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* My Ads modal (reuses MyCampaignsSection, shown over Home) */}
+      <Modal visible={showMyAds} animationType="slide" transparent>
+  <View style={{ flex: 1, backgroundColor: C.card }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 56 : 40, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border }}>
+      <Text style={{ fontFamily: fonts.black, fontSize: 18, color: C.dark }}>My Ads</Text>
+      <TouchableOpacity onPress={() => setShowMyAds(false)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.light, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, color: C.muted }}>✕</Text>
+      </TouchableOpacity>
+    </View>
+    <View style={{ flex: 1 }}>
+      <MyCampaignsSection user={user} C={C} />
+    </View>
+  </View>
+</Modal>
+
+      {/* Campaign modal (reuses AdvertiseSection, shown over Home) */}
+      <Modal visible={showCampaign} animationType="slide" transparent>
+  <View style={{ flex: 1, backgroundColor: C.card }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 56 : 40, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border }}>
+      <Text style={{ fontFamily: fonts.black, fontSize: 18, color: C.dark }}>Campaign</Text>
+      <TouchableOpacity onPress={() => setShowCampaign(false)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.light, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, color: C.muted }}>✕</Text>
+      </TouchableOpacity>
+    </View>
+    <View style={{ flex: 1 }}>
+      <AdvertiseSection user={user} C={C} />
+    </View>
+  </View>
+</Modal>
+
+      {/* Activity history modal */}
+      <ActivityHistoryScreen
+        visible={showActivityHistory}
+        onClose={() => setShowActivityHistory(false)}
+        user={user}
+        C={C}
+      />
+
+<GiftCardModal
+  visible={showGiftCard}
+  onClose={() => setShowGiftCard(false)}
+  onSubmitted={onRefresh}
+  user={user}
+  C={C}
+/>
+<AirtimeModal
+  visible={showAirtime}
+  onClose={() => setShowAirtime(false)}
+  onSuccess={onRefresh}
+  C={C}
+/>
+<DataPlanModal
+  visible={showData}
+  onClose={() => setShowData(false)}
+  onSuccess={onRefresh}
+  C={C}
+/>
       <TaskProofModal
         visible={showProofModal}
         task={activeTask}
@@ -5067,91 +5205,39 @@ if (tasksRes.success) {
         C={C}
       />
       {/* Leaderboard */}
-      <View style={{ paddingHorizontal: 16 }}>
-        <SH title={t("topEarners")} C={C} />
-        <View style={[s.lbBox, { backgroundColor: C.card }]}>
-          {leaders.slice(0, 3).map((u, i) => {
-            const isMe = u.uid === user?.uid;
-            return (
-              <View
-                key={u.uid}
-                style={[
-                  s.lbRow,
-                  i < Math.min(leaders.length, 5) - 1 && {
-                    borderBottomWidth: 1,
-                    borderBottomColor: C.border,
-                  },
-                  isMe && { backgroundColor: C.blue + "18" },
-                ]}
-              >
-                <Text
-                  style={[
-                    s.lbRank,
-                    { color: C.muted },
-                    i === 0 && { color: C.gold },
-                    i === 1 && { color: "#94A3B8" },
-                    i === 2 && { color: "#CD7F32" },
-                  ]}
-                >
-                  #{u.rank}
-                </Text>
-                <View
-                  style={[s.lbAv, isMe && { backgroundColor: C.blue + "25" }]}
-                >
-                  <Text style={[s.lbAvTxt, { color: C.blue }]}>
-                    {u.firstName?.[0]}
-                    {u.lastName?.[0]}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    s.lbName,
-                    { color: C.dark },
-                    isMe && { color: C.blue, fontFamily: fonts.bold },
-                  ]}
-                >
-                  {u.username}
-                  {isMe ? " (you)" : ""}
-                </Text>
-                <Text style={[s.lbEarned, { color: C.green }]}>
-                  ${u.totalEarned.toFixed(2)}
-                </Text>
-                {i === 0 && <Ico.Trophy />}
-              </View>
-            );
-          })}
-          {leaders.length === 0 && (
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: 13,
-                color: C.muted,
-                textAlign: "center",
-                padding: 20,
-              }}
-            >
-              {t("noDataYet")}
-            </Text>
-          )}
-          {leaders.length > 3 && (
-            <TouchableOpacity
-              onPress={() => setShowAllLeaders(true)}
-              style={{
-                alignItems: "center",
-                paddingVertical: 14,
-                borderTopWidth: 1,
-                borderTopColor: C.border,
-              }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={{ fontFamily: fonts.bold, fontSize: 13, color: C.blue }}
-              >
-                See All Top 15 →
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+{/* Leaderboard — collapsed button only */}
+<View style={{ paddingHorizontal: 16 }}>
+<TouchableOpacity
+  onPress={() => setShowAllLeaders(true)}
+  activeOpacity={0.85}
+  style={{
+    backgroundColor: "#EEF4FF",
+    borderRadius: 20,
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  }}
+>
+  <View style={{
+    width: 46, height: 46, borderRadius: 23, backgroundColor: C.blue,
+    alignItems: "center", justifyContent: "center",
+  }}>
+    <Ico.Trophy sz={22} cl="#FFFFFF" />
+  </View>
+  <View style={{ flex: 1 }}>
+    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: C.dark }}>Top Weekly Earners</Text>
+    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: C.muted, marginTop: 2 }}>
+      See who is leading the charts
+    </Text>
+  </View>
+  <View style={{
+    width: 34, height: 34, borderRadius: 17, backgroundColor: C.blue,
+    alignItems: "center", justifyContent: "center",
+  }}>
+    <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "800" }}>→</Text>
+  </View>
+</TouchableOpacity>
       </View>
       <Modal visible={showAllLeaders} animationType="slide" transparent>
         <View
@@ -5270,11 +5356,19 @@ if (tasksRes.success) {
 }
 
 // ── Withdrawal PIN Modal ───────────────────────────────────────────────────
-function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
+function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, userIdentifier, C }) {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [step, setStep] = useState("enter");
   const [error, setError] = useState("");
+
+  // ── Forgot PIN flow ────────────────────────────────────────────────────
+  // "pin" = normal PIN pad, "password" = verify login password before reset
+  const [screen, setScreen] = useState("pin");
+  const [localMode, setLocalMode] = useState(mode);
+  const [password, setPassword] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [verifyingPw, setVerifyingPw] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -5282,14 +5376,53 @@ function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
       setConfirmPin("");
       setStep("enter");
       setError("");
+      setScreen("pin");
+      setLocalMode(mode);
+      setPassword("");
+      setPwError("");
     }
-  }, [visible]);
+  }, [visible, mode]);
 
   const storageKey = `pe_withdraw_pin_${userId}`;
 
+  const handleForgotPin = () => {
+    setScreen("password");
+    setPassword("");
+    setPwError("");
+  };
+
+  const handleVerifyPassword = async () => {
+    if (!password) {
+      setPwError("Please enter your password.");
+      return;
+    }
+    setVerifyingPw(true);
+    setPwError("");
+    try {
+      const res = await AuthService.login(userIdentifier, password);
+      if (res && res.success === false) {
+        setPwError(res.message || "Incorrect password. Try again.");
+        return;
+      }
+      // Password confirmed — clear the old PIN and let the user set a new one
+      try {
+        await AsyncStorage.removeItem(storageKey);
+      } catch {}
+      setLocalMode("setup");
+      setPin("");
+      setConfirmPin("");
+      setStep("enter");
+      setScreen("pin");
+    } catch (err) {
+      setPwError("Incorrect password. Try again.");
+    } finally {
+      setVerifyingPw(false);
+    }
+  };
+
   const handleDigit = async (d) => {
     setError("");
-    if (mode === "setup") {
+    if (localMode === "setup") {
       if (step === "enter") {
         const next = pin + d;
         setPin(next);
@@ -5332,14 +5465,14 @@ function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
   };
   const handleDelete = () => {
     setError("");
-    if (mode === "setup" && step === "confirm") {
+    if (localMode === "setup" && step === "confirm") {
       setConfirmPin((prev) => prev.slice(0, -1));
     } else {
       setPin((prev) => prev.slice(0, -1));
     }
   };
 
-  const currentVal = mode === "setup" && step === "confirm" ? confirmPin : pin;
+  const currentVal = localMode === "setup" && step === "confirm" ? confirmPin : pin;
   const DIGITS = [
     ["1", "2", "3"],
     ["4", "5", "6"],
@@ -5348,13 +5481,15 @@ function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
   ];
 
   const title =
-    mode === "setup"
+    localMode === "setup"
       ? step === "enter"
-        ? "Create Withdrawal PIN"
+        ? mode === "verify"
+          ? "Create a New PIN"
+          : "Create Withdrawal PIN"
         : "Confirm your PIN"
       : "Enter Withdrawal PIN";
   const subtitle =
-    mode === "setup"
+    localMode === "setup"
       ? step === "enter"
         ? "Set a 4-digit PIN to secure your withdrawals"
         : "Re-enter your PIN to confirm"
@@ -5410,7 +5545,7 @@ function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
             }}
           >
             <Text style={{ fontSize: 28 }}>
-              {mode === "setup" ? "🔐" : "🔒"}
+              {screen === "password" ? "🔑" : localMode === "setup" ? "🔐" : "🔒"}
             </Text>
           </View>
           <Text
@@ -5421,7 +5556,7 @@ function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
               marginBottom: 6,
             }}
           >
-            {title}
+            {screen === "password" ? "Confirm It's You" : title}
           </Text>
           <Text
             style={{
@@ -5432,84 +5567,197 @@ function WithdrawalPinModal({ visible, mode, onSuccess, onClose, userId, C }) {
               marginBottom: 24,
             }}
           >
-            {subtitle}
+            {screen === "password"
+              ? "Enter your login password to reset your withdrawal PIN"
+              : subtitle}
           </Text>
 
-          {/* Dots */}
-          <View style={{ flexDirection: "row", gap: 14, marginBottom: 8 }}>
-            {[0, 1, 2, 3].map((i) => (
-              <View
-                key={i}
+          {screen === "password" ? (
+            <>
+              <TextInput
+                value={password}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  setPwError("");
+                }}
+                placeholder="Login password"
+                placeholderTextColor={C.slate}
+                secureTextEntry
+                autoCapitalize="none"
                 style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: 7,
-                  backgroundColor: currentVal.length > i ? C.blue : C.border,
+                  width: "100%",
+                  backgroundColor: C.input,
+                  borderRadius: 14,
+                  borderWidth: 1.5,
+                  borderColor: C.border,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  fontFamily: fonts.medium,
+                  fontSize: 15,
+                  color: C.dark,
+                  marginBottom: 8,
                 }}
               />
-            ))}
-          </View>
-          {error ? (
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                fontSize: 12,
-                color: C.red,
-                marginTop: 8,
-                marginBottom: 4,
-              }}
-            >
-              ⚠️ {error}
-            </Text>
-          ) : (
-            <View style={{ height: 24 }} />
-          )}
+              {pwError ? (
+                <Text
+                  style={{
+                    fontFamily: fonts.medium,
+                    fontSize: 12,
+                    color: C.red,
+                    marginBottom: 4,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  ⚠️ {pwError}
+                </Text>
+              ) : (
+                <View style={{ height: 20 }} />
+              )}
 
-          {/* Numpad */}
-          <View style={{ width: "100%", gap: 10, marginTop: 8 }}>
-            {DIGITS.map((row, ri) => (
-              <View key={ri} style={{ flexDirection: "row", gap: 10 }}>
-                {row.map((d, di) => (
-                  <TouchableOpacity
-                    key={di}
-                    onPress={() =>
-                      d === "⌫"
-                        ? handleDelete()
-                        : d !== ""
-                        ? handleDigit(d)
-                        : null
-                    }
-                    activeOpacity={d === "" ? 1 : 0.7}
+              <TouchableOpacity
+                onPress={handleVerifyPassword}
+                disabled={verifyingPw}
+                activeOpacity={0.85}
+                style={{
+                  width: "100%",
+                  backgroundColor: C.blue,
+                  borderRadius: 14,
+                  paddingVertical: 15,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: 8,
+                  opacity: verifyingPw ? 0.7 : 1,
+                }}
+              >
+                {verifyingPw ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text
                     style={{
-                      flex: 1,
-                      height: 58,
-                      borderRadius: 16,
-                      backgroundColor:
-                        d === ""
-                          ? "transparent"
-                          : d === "⌫"
-                          ? "#FFF5F5"
-                          : C.input,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: d === "" ? 0 : 1.5,
-                      borderColor: d === "⌫" ? "#FECACA" : C.border,
+                      fontFamily: fonts.bold,
+                      fontSize: 15,
+                      color: "#FFFFFF",
                     }}
                   >
-                    <Text
-                      style={{
-                        fontFamily: fonts.bold,
-                        fontSize: d === "⌫" ? 20 : 22,
-                        color: d === "⌫" ? C.red : C.dark,
-                      }}
-                    >
-                      {d}
-                    </Text>
-                  </TouchableOpacity>
+                    Verify & Continue
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setScreen("pin")}
+                activeOpacity={0.7}
+                style={{ marginTop: 16 }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.semibold,
+                    fontSize: 13,
+                    color: C.muted,
+                  }}
+                >
+                  Back to PIN entry
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* Dots */}
+              <View style={{ flexDirection: "row", gap: 14, marginBottom: 8 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 7,
+                      backgroundColor: currentVal.length > i ? C.blue : C.border,
+                    }}
+                  />
                 ))}
               </View>
-            ))}
-          </View>
+              {error ? (
+                <Text
+                  style={{
+                    fontFamily: fonts.medium,
+                    fontSize: 12,
+                    color: C.red,
+                    marginTop: 8,
+                    marginBottom: 4,
+                  }}
+                >
+                  ⚠️ {error}
+                </Text>
+              ) : (
+                <View style={{ height: 24 }} />
+              )}
+
+              {/* Numpad */}
+              <View style={{ width: "100%", gap: 10, marginTop: 8 }}>
+                {DIGITS.map((row, ri) => (
+                  <View key={ri} style={{ flexDirection: "row", gap: 10 }}>
+                    {row.map((d, di) => (
+                      <TouchableOpacity
+                        key={di}
+                        onPress={() =>
+                          d === "⌫"
+                            ? handleDelete()
+                            : d !== ""
+                            ? handleDigit(d)
+                            : null
+                        }
+                        activeOpacity={d === "" ? 1 : 0.7}
+                        style={{
+                          flex: 1,
+                          height: 58,
+                          borderRadius: 16,
+                          backgroundColor:
+                            d === ""
+                              ? "transparent"
+                              : d === "⌫"
+                              ? "#FFF5F5"
+                              : C.input,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: d === "" ? 0 : 1.5,
+                          borderColor: d === "⌫" ? "#FECACA" : C.border,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontFamily: fonts.bold,
+                            fontSize: d === "⌫" ? 20 : 22,
+                            color: d === "⌫" ? C.red : C.dark,
+                          }}
+                        >
+                          {d}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ))}
+              </View>
+
+              {/* Forgot PIN — only when authorizing a withdrawal with an existing PIN */}
+              {mode === "verify" && localMode === "verify" && (
+                <TouchableOpacity
+                  onPress={handleForgotPin}
+                  activeOpacity={0.7}
+                  style={{ marginTop: 18 }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.semibold,
+                      fontSize: 13,
+                      color: C.blue,
+                    }}
+                  >
+                    Forgot PIN?
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -5647,7 +5895,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
   const handleSubmit = async () => {
     setError("");
     const amt = parseFloat(amount);
-    if (!amt || amt < 0.1) {
+    if (!amt || amt < 3.5) {
       setError("Minimum withdrawal is $3.50.");
       return;
     }
@@ -5698,6 +5946,7 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
         visible={showPin}
         mode={pinMode}
         userId={user?.uid}
+        userIdentifier={user?.email}
         C={C}
         onSuccess={handlePinSuccess}
         onClose={onCancel}
@@ -6810,6 +7059,243 @@ function WithdrawForm({ user, C, t, onSuccess, onCancel }) {
     </View>
   );
 }
+
+function IntlWithdrawForm({ user, C, onSuccess, onCancel }) {
+  const [config, setConfig] = useState(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [method, setMethod] = useState(null); // "paypal" | "bank" | "crypto" | "payoneer"
+  const [amount, setAmount] = useState("");
+  const [details, setDetails] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const fetchConfig = async () => {
+    setLoadingConfig(true);
+    try {
+      const res = await apiClient("/intl-withdrawals/config");
+      if (res.success) setConfig(res.data);
+    } catch {}
+    finally { setLoadingConfig(false); }
+  };
+
+  const setDetail = (key, val) => setDetails((prev) => ({ ...prev, [key]: val }));
+
+  const amt = parseFloat(amount) || 0;
+  const feeUsd = config && method ? config.fees[method] || 0 : 0;
+  const youReceive = amt > 0 ? Math.max(0, amt - feeUsd) : 0;
+
+  const METHODS = [
+    { key: "paypal", label: "PayPal", icon: "💳" },
+    { key: "bank", label: "Bank / SWIFT", icon: "🏦" },
+    { key: "crypto", label: "Crypto (USDT)", icon: "🪙" },
+    { key: "payoneer", label: "Payoneer", icon: "🌍" },
+  ];
+
+  const detailsValid = () => {
+    if (method === "paypal") return !!details.paypalEmail;
+    if (method === "payoneer") return !!details.payoneerEmail;
+    if (method === "crypto") return !!details.walletAddress && !!details.network;
+    if (method === "bank")
+      return !!details.fullName && !!details.bankName && !!details.accountNumber && !!details.swiftCode && !!details.country;
+    return false;
+  };
+
+  const canSubmit = method && detailsValid() && amt >= (config?.minWithdrawUsd || 3.5) && !submitting;
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const res = await apiClient("/intl-withdrawals", {
+        method: "POST",
+        body: { method, amount: amt, details },
+      });
+      if (res.success) {
+        setDone(true);
+      } else {
+        setError(res.message || "Submission failed. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <View style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: C.card, borderRadius: 20, padding: 28, alignItems: "center" }}>
+        <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: "#F0FDF4", alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 2, borderColor: C.green }}>
+          <Text style={{ fontSize: 36 }}>✅</Text>
+        </View>
+        <Text style={{ fontFamily: fonts.black, fontSize: 20, color: C.dark, textAlign: "center", marginBottom: 8 }}>
+          Request Submitted!
+        </Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: C.muted, textAlign: "center", lineHeight: 22, marginBottom: 20 }}>
+          <Text style={{ fontFamily: fonts.bold, color: C.green }}>${youReceive.toFixed(2)}</Text> will be sent via{" "}
+          {METHODS.find((m) => m.key === method)?.label} within 24-48 hours.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: C.blue, borderRadius: 14, height: 50, alignItems: "center", justifyContent: "center", width: "100%" }}
+          onPress={onSuccess} activeOpacity={0.85}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#fff" }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: C.card, borderRadius: 20, padding: 20 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: C.dark }}>Withdraw Internationally</Text>
+        <TouchableOpacity onPress={onCancel} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.input, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: C.muted, fontSize: 16 }}>✕</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loadingConfig ? (
+        <ActivityIndicator color={C.blue} style={{ marginVertical: 20 }} />
+      ) : (
+        <>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Payout Method</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {METHODS.map((m) => (
+              <TouchableOpacity
+                key={m.key}
+                onPress={() => { setMethod(m.key); setDetails({}); setError(""); }}
+                style={{
+                  flexDirection: "row", alignItems: "center", gap: 6,
+                  paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,
+                  borderWidth: 1.5, borderColor: method === m.key ? C.blue : C.border,
+                  backgroundColor: method === m.key ? C.blue + "12" : C.input,
+                }}
+              >
+                <Text style={{ fontSize: 15 }}>{m.icon}</Text>
+                <Text style={{ fontFamily: method === m.key ? fonts.bold : fonts.medium, fontSize: 13, color: method === m.key ? C.blue : C.muted }}>
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {method === "paypal" && (
+            <IntlField label="PayPal Email" placeholder="you@example.com" value={details.paypalEmail} onChange={(v) => setDetail("paypalEmail", v)} C={C} keyboardType="email-address" />
+          )}
+          {method === "payoneer" && (
+            <IntlField label="Payoneer Email" placeholder="you@example.com" value={details.payoneerEmail} onChange={(v) => setDetail("payoneerEmail", v)} C={C} keyboardType="email-address" />
+          )}
+          {method === "crypto" && (
+            <>
+              <IntlField label="Wallet Address" placeholder="USDT wallet address" value={details.walletAddress} onChange={(v) => setDetail("walletAddress", v)} C={C} />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Network</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+                {["TRC20", "ERC20", "BEP20"].map((net) => (
+                  <TouchableOpacity
+                    key={net}
+                    onPress={() => setDetail("network", net)}
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center",
+                      borderWidth: 1.5, borderColor: details.network === net ? C.blue : C.border,
+                      backgroundColor: details.network === net ? C.blue + "12" : C.input,
+                    }}
+                  >
+                    <Text style={{ fontFamily: details.network === net ? fonts.bold : fonts.medium, fontSize: 12, color: details.network === net ? C.blue : C.muted }}>{net}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+          {method === "bank" && (
+            <>
+              <IntlField label="Full Name" placeholder="As shown on your bank account" value={details.fullName} onChange={(v) => setDetail("fullName", v)} C={C} />
+              <IntlField label="Country" placeholder="e.g. United States" value={details.country} onChange={(v) => setDetail("country", v)} C={C} />
+              <IntlField label="Bank Name" placeholder="e.g. Chase Bank" value={details.bankName} onChange={(v) => setDetail("bankName", v)} C={C} />
+              <IntlField label="Account Number / IBAN" placeholder="Account number or IBAN" value={details.accountNumber} onChange={(v) => setDetail("accountNumber", v)} C={C} />
+              <IntlField label="SWIFT / BIC Code" placeholder="e.g. CHASUS33" value={details.swiftCode} onChange={(v) => setDetail("swiftCode", v)} C={C} />
+              <IntlField label="Bank Address (optional)" placeholder="Bank branch address" value={details.bankAddress} onChange={(v) => setDetail("bankAddress", v)} C={C} />
+            </>
+          )}
+
+          {method && (
+            <>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", marginBottom: 8, marginTop: 4 }}>Amount ($)</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 14, height: 52, marginBottom: 14 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: C.muted, marginRight: 6 }}>$</Text>
+                <TextInput
+                  style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: C.dark }}
+                  placeholder={`Min. $${(config?.minWithdrawUsd || 3.5).toFixed(2)}`}
+                  placeholderTextColor={C.slate}
+                  keyboardType="numeric"
+                  value={amount}
+                  onChangeText={(v) => { setAmount(v); setError(""); }}
+                />
+              </View>
+
+              {amt > 0 && (
+                <View style={{ backgroundColor: C.input, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border }}>
+                  {[
+                    { lbl: "You withdraw", val: `$${amt.toFixed(2)}`, color: C.dark },
+                    { lbl: "Processing fee", val: `– $${feeUsd.toFixed(2)}`, color: C.red },
+                    { lbl: "You receive", val: `$${youReceive.toFixed(2)}`, color: C.green },
+                  ].map((row, i) => (
+                    <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: C.muted }}>{row.lbl}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: row.color }}>{row.val}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+
+          {error ? (
+            <View style={{ backgroundColor: "#FFF5F5", borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#FECACA" }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: C.red, textAlign: "center" }}>⚠️ {error}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={{ backgroundColor: canSubmit ? C.green : C.border, borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center" }}
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+            activeOpacity={0.85}
+          >
+            {submitting ? <ActivityIndicator color="#fff" /> : (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: canSubmit ? "#fff" : C.muted }}>
+                {method ? `Withdraw $${amount || "0"} →` : "Select a method first"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  );
+}
+
+function IntlField({ label, placeholder, value, onChange, C, keyboardType }) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{label}</Text>
+      <TextInput
+        style={{ backgroundColor: C.input, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, height: 50, paddingHorizontal: 14, fontFamily: fonts.medium, fontSize: 14, color: C.dark }}
+        placeholder={placeholder}
+        placeholderTextColor={C.slate}
+        value={value || ""}
+        onChangeText={onChange}
+        keyboardType={keyboardType}
+        autoCapitalize="none"
+      />
+    </View>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // WALLET SCREEN
 // ══════════════════════════════════════════════════════════════════════════
@@ -6832,6 +7318,7 @@ function WalletScreen({
   });
   const [submitting, setSubmitting] = useState(false);
   const [withdrawn, setWithdrawn] = useState(0);
+  const [showIntlWithdraw, setShowIntlWithdraw] = useState(false);
 
   const withdrawAmt = parseFloat(withdrawForm.amount) || 0;
   const WITHDRAWAL_FEE = 0.0;
@@ -6867,7 +7354,7 @@ function WalletScreen({
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawForm.amount);
-    if (!amount || amount < 1.0) {
+    if (!amount || amount < 3.5) {
       Alert.alert("Minimum withdrawal is $3.50");
       return;
     }
@@ -7373,6 +7860,36 @@ function WalletScreen({
           onCancel={() => setShowWithdraw(false)}
         />
       )}
+
+<TouchableOpacity
+  onPress={() => setShowIntlWithdraw(!showIntlWithdraw)}
+  activeOpacity={0.85}
+  style={{
+    marginHorizontal: 16, marginBottom: 16, backgroundColor: C.purple + "15",
+    borderRadius: 16, padding: 16, borderWidth: 1.5, borderColor: C.purple + "40",
+    flexDirection: "row", alignItems: "center", gap: 12,
+  }}
+>
+  <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: C.purple, alignItems: "center", justifyContent: "center" }}>
+    <Text style={{ fontSize: 18 }}>🌍</Text>
+  </View>
+  <View style={{ flex: 1 }}>
+    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: C.dark }}>Outside Nigeria?</Text>
+    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: C.muted, marginTop: 2 }}>
+      Withdraw via PayPal, bank transfer, crypto, or Payoneer
+    </Text>
+  </View>
+  <Text style={{ fontSize: 16, color: C.muted }}>{showIntlWithdraw ? "▲" : "▼"}</Text>
+</TouchableOpacity>
+
+{showIntlWithdraw && (
+  <IntlWithdrawForm
+    user={user}
+    C={C}
+    onSuccess={() => { setShowIntlWithdraw(false); fetchTransactions(); if (onUserUpdate) onUserUpdate(); }}
+    onCancel={() => setShowIntlWithdraw(false)}
+  />
+)}
 
       {/* Transaction History */}
       <View style={{ paddingHorizontal: 16 }}>
@@ -8862,7 +9379,7 @@ const TABS_CONFIG = [
 ];
 const LOCKED_KEYS = ["promo", "referral"];
 
-function TabBar({ active, onChange, isActivated, C, t }) {
+function TabBar({ active, onChange, isActivated, C, t, hasNewTask }) {
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -8887,16 +9404,22 @@ function TabBar({ active, onChange, isActivated, C, t }) {
           >
             {isActive && <View style={s.tabLine} />}
             <View style={{ position: "relative" }}>
-              <t.Ic
-                sz={22}
-                cl={isActive ? C.blue : isLocked ? "#CBD5E1" : "#94A3B8"}
-              />
-              {isLocked && (
-                <View style={s.lockDot}>
-                  <Ico.Lock sz={7} cl={C.white} />
-                </View>
-              )}
-            </View>
+  <t.Ic
+    sz={22}
+    cl={isActive ? C.blue : isLocked ? "#CBD5E1" : "#94A3B8"}
+  />
+  {isLocked && (
+    <View style={s.lockDot}>
+      <Ico.Lock sz={7} cl={C.white} />
+    </View>
+  )}
+  {t.key === "promo" && hasNewTask && !isLocked && (
+    <View style={{
+      position: "absolute", top: -3, right: -4, width: 10, height: 10, borderRadius: 5,
+      backgroundColor: "#EF4444", borderWidth: 1.5, borderColor: C.card,
+    }} />
+  )}
+</View>
             <Text
               style={[
                 s.tabLabel,
@@ -8916,7 +9439,7 @@ function TabBar({ active, onChange, isActivated, C, t }) {
 // ══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ══════════════════════════════════════════════════════════════════════════
-export default function MainApp({ onLogout, initialUser }) {
+export default function MainApp({ onLogout, initialUser, pendingVtuAction, onConsumePendingVtuAction }) {
   const [tab, setTab] = useState("home");
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState("en");
@@ -8929,6 +9452,7 @@ export default function MainApp({ onLogout, initialUser }) {
   const [showStripe, setShowStripe] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasNewTask, setHasNewTask] = useState(false);
 
   // ── Balance visibility state ──────────────────────────────────────────
   // Persisted in localStorage so it survives app restarts
@@ -8977,6 +9501,10 @@ export default function MainApp({ onLogout, initialUser }) {
     fetchUnreadCount();
     loadPreferences();
   }, []);
+
+  useEffect(() => {
+    if (pendingVtuAction) setTab("home");
+  }, [pendingVtuAction]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -9096,6 +9624,9 @@ export default function MainApp({ onLogout, initialUser }) {
             unreadCount={unreadCount}
             balanceHidden={balanceHidden}
             onToggleHide={handleToggleHide}
+            onNewTaskChange={setHasNewTask}
+            pendingVtuAction={pendingVtuAction}
+            onConsumePendingVtuAction={onConsumePendingVtuAction}
           />
         );
       case "promo":
@@ -9141,12 +9672,13 @@ export default function MainApp({ onLogout, initialUser }) {
     <View style={{ flex: 1, backgroundColor: C.light }}>
       <View style={{ flex: 1 }}>{render()}</View>
       <TabBar
-        active={tab}
-        onChange={setTab}
-        isActivated={!!(user?.isActivated || user?.isAdmin)}
-        C={C}
-        t={t}
-      />
+  active={tab}
+  onChange={setTab}
+  isActivated={!!(user?.isActivated || user?.isAdmin)}
+  C={C}
+  t={t}
+  hasNewTask={hasNewTask}
+/>
       <PremiumModal
         visible={showPremium}
         onProceed={onProceed}

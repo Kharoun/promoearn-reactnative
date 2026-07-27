@@ -14,8 +14,10 @@ import Svg, { Path, Circle, Rect, Line, Polyline } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fonts } from "../utils/typography";
 import AuthService from "../services/authService";
+import { BiometricAuth } from "../services/biometricAuth";
 
 const PREFS_KEY = "pe_user_preferences";
+
 
 // ── Themes ────────────────────────────────────────────────────────────────
 export const LIGHT = {
@@ -576,6 +578,30 @@ export default function AccountSettingsScreen({
   const [show2FA,      setShow2FA]      = useState(false);
   const [showDelete,   setShowDelete]   = useState(false);   // NEW
 
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  
+  useEffect(() => {
+    (async () => {
+      setBioSupported(await BiometricAuth.isSupported());
+      setBioEnabled(await BiometricAuth.isEnabled());
+    })();
+  }, []);
+  
+  const handleBioToggle = async (v) => {
+    if (v) {
+      const success = await BiometricAuth.authenticate();
+      if (!success) return;
+      const refreshToken = await AuthService.getRefreshToken();
+      if (!refreshToken) { Alert.alert("Error", "Could not retrieve session. Try logging out and back in."); return; }
+      await BiometricAuth.enableForUser(refreshToken);
+      setBioEnabled(true);
+    } else {
+      await BiometricAuth.disable();
+      setBioEnabled(false);
+    }
+  };
+
   useEffect(() => { setLocalUser(user); }, [user]);
 
   useEffect(() => {
@@ -735,7 +761,7 @@ export default function AccountSettingsScreen({
           {/* ── Security ── */}
           <Sec title="Security"/>
           <View style={{ marginHorizontal:20, backgroundColor:C.card, borderRadius:18, overflow:"hidden", borderWidth:1, borderColor:C.border }}>
-            <Row
+          <Row
               iconEl={<Ico.Shield sz={17} cl={twoFA?C.green:C.muted}/>}
               iconBg={twoFA ? C.green+"20" : C.border}
               label="Two-Factor Authentication"
@@ -749,8 +775,25 @@ export default function AccountSettingsScreen({
                   ios_backgroundColor={C.border}
                 />
               }
-              last
             />
+            {bioSupported && (
+              <Row
+                iconEl={<Ico.Shield sz={17} cl={bioEnabled?C.green:C.muted}/>}
+                iconBg={bioEnabled ? C.green+"20" : C.border}
+                label="Face ID / Fingerprint"
+                sub={bioEnabled ? "Enabled for quick login" : "Log in without your password"}
+                right={
+                  <Switch
+                    value={bioEnabled}
+                    onValueChange={handleBioToggle}
+                    trackColor={{ false:C.border, true:C.green }}
+                    thumbColor="#fff"
+                    ios_backgroundColor={C.border}
+                  />
+                }
+                last
+              />
+            )}
           </View>
 
           <View style={{ marginHorizontal:20, marginTop:8, backgroundColor:C.blue+"12", borderRadius:14,

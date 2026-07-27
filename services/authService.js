@@ -2,7 +2,7 @@
  * PromoEarn Auth Service
  * Drop this file into your React Native project at: services/authService.js
  */
-
+import { BiometricAuth } from "./biometricAuth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
@@ -217,6 +217,29 @@ const AuthService = {
     }
   },
 
+  async getRefreshToken() {
+    return TokenStore.getRefresh();
+  },
+
+  async refreshSessionWithToken(refreshToken) {
+    try {
+      if (!refreshToken) return false;
+      const data = await request("/refresh-token", {
+        method: "POST",
+        body: { refreshToken },
+        auth: false,
+      });
+      if (data.success && data.data?.accessToken) {
+        await TokenStore.save(data.data.accessToken, data.data.refreshToken || refreshToken);
+        await this.recordLoginTime();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
   // ── User ────────────────────────────────────────────────────────────────────
   async getMe() {
     return request("/me", { method: "GET" });
@@ -224,6 +247,7 @@ const AuthService = {
 
   async logout() {
     await TokenStore.clear();
+    await BiometricAuth.disable();
   },
   
   async isLoggedIn() {

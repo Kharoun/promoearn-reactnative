@@ -3,7 +3,7 @@
     "name": "PromoEarn",
     "slug": "promoearn",
     "jsEngine": "hermes",
-    "version": "1.4.1",
+    "version": "1.4.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "promoearn",
@@ -13,41 +13,46 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.KhalidHaroun.promoearn",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "PromoEarn needs access to select media for your campaign."
+        "NSPhotoLibraryUsageDescription": "PromoEarn needs access to select media for your campaign.",
+        "NSFaceIDUsageDescription": "Use Face ID to log in to PromoEarn quickly and securely."
       }
     },
     "android": {
       "googleServicesFile": "./google-services.json",
       "package": "com.promoearn.app",
-      "versionCode": 16,
+      "versionCode": 19,
       "jsEngine": "hermes",
-  "permissions": [
-  "CAMERA",
-  "INTERNET",
-  "VIBRATE",
-  "RECEIVE_BOOT_COMPLETED"
-],
+      "permissions": [
+        "CAMERA",
+        "INTERNET",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
       "adaptiveIcon": {
-  "foregroundImage": "./assets/images/android-icon-foreground.png",
-  "backgroundColor": "#E6F4FE"
-},
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#E6F4FE"
+      },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
-  "web": {
-  "output": "static",
-  "favicon": "./assets/images/favicon.png",
-  "name": "PromoEarn",
-  "shortName": "PromoEarn",
-  "description": "Earn money by completing brand promotional tasks",
-  "themeColor": "#1E40AF",
-  "backgroundColor": "#ffffff"
-},
-"plugins": [
-  "expo-router",
-  "expo-web-browser",
-  "expo-font"
-],
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "name": "PromoEarn",
+      "shortName": "PromoEarn",
+      "description": "Earn money by completing brand promotional tasks",
+      "themeColor": "#1E40AF",
+      "backgroundColor": "#ffffff"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-font",
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "Allow PromoEarn to use Face ID." }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
@@ -60,9 +65,9 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-   "updates": {
-  "url": "https://u.expo.dev/d8723daf-96c2-4109-b037-f855ad3add32"
-},
+    "updates": {
+      "url": "https://u.expo.dev/d8723daf-96c2-4109-b037-f855ad3add32"
+    },
     "owner": "promo-earn"
   }
 }

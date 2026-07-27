@@ -127,7 +127,7 @@ const SlotFullModal = ({ visible, task, onClose, C }) => {
 
 // ── Task Card ──────────────────────────────────────────────────────────────
 // FIXED
-const TaskCard = ({ task, locked, onStart, completedIds, rejectedIds = [], C, onSlotsFull }) => {
+const TaskCard = ({ task, locked, onStart, completedIds, rejectedIds = [], C, onSlotsFull, onGoToCampaign }) => {
   const tm          = TYPE_META[task.type] || TYPE_META.social;
   const done        = completedIds.includes(task.id) || task.status === "completed";
   const wasRejected = !done && rejectedIds.includes(task.id);
@@ -138,6 +138,7 @@ const TaskCard = ({ task, locked, onStart, completedIds, rejectedIds = [], C, on
 
   const handleStart = () => {
     if (isFull) { onSlotsFull?.(task); return; }
+    if (task.link === "promoearn://campaign") { onGoToCampaign?.(); return; }
     if (task.link) { Linking.openURL(task.link); setStep("opened"); }
     else onStart(task);
   };
@@ -210,8 +211,8 @@ const TaskCard = ({ task, locked, onStart, completedIds, rejectedIds = [], C, on
 // ── Filter Tab Bar ─────────────────────────────────────────────────────────
 const FilterTabBar = ({ filter, onFilter, C }) => (
   <ScrollView horizontal showsHorizontalScrollIndicator={false}
-    style={{ maxHeight:62 }}
-    contentContainerStyle={{ paddingHorizontal:16, paddingVertical:8, gap:8 }}>
+    style={{ height:54 }}
+    contentContainerStyle={{ paddingHorizontal:16, gap:8, alignItems:"center" }}>
     {FILTER_TABS.map(f => {
       const active = filter === f.key;
       return (
@@ -831,7 +832,7 @@ const [payRef,      setPayRef]      = useState(null);
           </View>
         )}
       </View>
-    </View>
+    </View>a
   </Modal>
 )}
     </>
@@ -1281,11 +1282,11 @@ const fetchTasks = async () => {
   } catch {}
   finally { setLoading(false); }
 };
-  const handleStart = (task, cb) => {
-    activeTaskOnDoneRef.current = cb || null;
-    setActiveTask(task);
-    setShowProofModal(true);
-  };
+const handleStart = (task, cb) => {
+  activeTaskOnDoneRef.current = cb || null;
+  setActiveTask(task);
+  setShowProofModal(true);
+};
 
   const list   = filter==="all" ? tasks : tasks.filter(t=>t.type===filter);
   const earn   = tasks.reduce((s,t)=>s+parseFloat(t.reward||0),0);
@@ -1298,9 +1299,9 @@ const fetchTasks = async () => {
 
   const TABS = [
     { key:"tasks",        label:"Earn"      },
-    { key:"advertise",    label:"Advertise" },
-    { key:"my-campaigns", label:"My Ads"    },
-    { key:"marketplace",  label:"Market"    },
+    // { key:"advertise",    label:"Advertise" },   // hidden — still reachable via MainApp Quick Actions
+    // { key:"my-campaigns", label:"My Ads"    },   // hidden — still reachable via MainApp Quick Actions
+    // { key:"marketplace",  label:"Market"    },   // hidden — feature not ready
   ];
 
   return (
@@ -1362,7 +1363,7 @@ const fetchTasks = async () => {
 ) : locked ? (
   // Show fake tasks for unactivated users
   FAKE_TASKS.map(task => (
-    <TaskCard key={task.id} task={task} locked={true} completedIds={[]} onStart={()=>{}} onSlotsFull={()=>{}} C={C}/>
+    <TaskCard key={task.id} task={task} locked={true} completedIds={[]} onStart={()=>{}} onSlotsFull={()=>{}} onGoToCampaign={()=>{}} C={C}/>
   ))
 ) : sorted.length===0 ? (
   <View style={{ alignItems:"center", paddingVertical:48 }}>
@@ -1372,7 +1373,7 @@ const fetchTasks = async () => {
   </View>
 ) : sorted.map(task=>(
   // FIXED
-<TaskCard key={task.id} task={task} locked={false} completedIds={doneIds} rejectedIds={rejectedIds} onStart={handleStart} onSlotsFull={t=>{setSlotTask(t);setShowSlot(true);}} C={C}/>
+<TaskCard key={task.id} task={task} locked={false} completedIds={doneIds} rejectedIds={rejectedIds} onStart={handleStart} onSlotsFull={t=>{setSlotTask(t);setShowSlot(true);}} onGoToCampaign={() => setTab("advertise")} C={C}/>
 ))}
           </ScrollView>
 
@@ -1457,3 +1458,5 @@ const FF = StyleSheet.create({
   backBtn:   { borderRadius:14, height:52, alignItems:"center", justifyContent:"center", paddingHorizontal:20, borderWidth:1.5 },
   backBtnTxt:{ fontFamily:"System", fontSize:14, fontWeight:"600" },
 });
+// ── Exported for reuse in MainApp.jsx (Quick Actions modals) ──────────────
+export { AdvertiseSection, MyCampaignsSection };
