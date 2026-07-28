@@ -80,6 +80,21 @@ function AnimatedSuccessCheck({ size = 84 }) {
   );
 }
 
+// ── Pending badge — shown when the order is queued behind a mySubwallet
+// topup rather than delivered yet. No animation — this isn't a moment of
+// success, so it shouldn't feel like one.
+function PendingBadge({ size = 84 }) {
+  return (
+    <View style={{
+      width: size, height: size, borderRadius: size / 2, backgroundColor: "#FFFBEB",
+      alignItems: "center", justifyContent: "center",
+      borderWidth: 2, borderColor: "#FDE68A",
+    }}>
+      <Text style={{ fontSize: size * 0.48 }}>⏳</Text>
+    </View>
+  );
+}
+
 export default function AirtimeModal({ visible, onClose, onSuccess, C }) {
   const [network, setNetwork]   = useState(1);
   const [phone, setPhone]       = useState("");
@@ -88,11 +103,12 @@ export default function AirtimeModal({ visible, onClose, onSuccess, C }) {
   const [submitting, setSub]    = useState(false);
   const [error, setError]       = useState(null);
   const [done, setDone]         = useState(false);
+  const [pending, setPending]   = useState(false);
 
   useEffect(() => {
     if (visible) {
       setNetwork(1); setPhone(""); setAmount("");
-      setError(null); setSub(false); setDone(false);
+      setError(null); setSub(false); setDone(false); setPending(false);
       fetchConfig();
     }
   }, [visible]);
@@ -120,7 +136,9 @@ export default function AirtimeModal({ visible, onClose, onSuccess, C }) {
         method: "POST",
         body: { network, phone: phone.trim(), faceValueNgn: face },
       });
-      if (res.success) {
+      if (res.success && res.pending) {
+        setPending(true);
+      } else if (res.success) {
         setDone(true);
       } else {
         setError(res.message || "Purchase failed. Please try again.");
@@ -134,7 +152,6 @@ export default function AirtimeModal({ visible, onClose, onSuccess, C }) {
 
   // Reset back to the purchase form without closing the modal
   const handleBuyMore = () => {
-    
     setDone(false);
     setAmount("");
     setError(null);
@@ -173,7 +190,43 @@ export default function AirtimeModal({ visible, onClose, onSuccess, C }) {
           </View>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 }}>
-            {done ? (
+            {pending ? (
+              /* ── Pending view — order queued behind a mySubwallet topup ── */
+              <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                <PendingBadge size={84} />
+                <Text
+                  style={{
+                    fontFamily: fonts.black, fontSize: 21, color: "#0F172A",
+                    marginTop: 16, marginBottom: 8, textAlign: "center",
+                  }}
+                >
+                  Order Received
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14, color: "#64748B", textAlign: "center",
+                    lineHeight: 21, marginBottom: 20, paddingHorizontal: 4,
+                  }}
+                >
+                  Your ₦{face.toLocaleString()} airtime order to {phone} has been received and is being processed. We'll notify you the moment it's delivered.
+                </Text>
+                <View style={{
+                  flexDirection: "row", gap: 10, backgroundColor: "#FFFFFF",
+                  borderRadius: 14, padding: 14, width: "100%", marginBottom: 20,
+                  borderWidth: 1, borderColor: "#E2E8F0",
+                }}>
+                  <Text style={{ color: "#1A56DB", fontSize: 14 }}>ℹ</Text>
+                  <Text style={{ fontSize: 12.5, color: "#0F172A", flex: 1, lineHeight: 18 }}>
+                    Your balance has already been deducted for this order — no need to try again. Check its status anytime in Activity History.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={{ backgroundColor: "#1A56DB", borderRadius: 14, height: 54, alignItems: "center", justifyContent: "center", width: "100%" }}
+                  onPress={() => { onSuccess?.(); onClose(); }} activeOpacity={0.85}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#FFF" }}>Got it</Text>
+                </TouchableOpacity>
+              </View>
+            ) : done ? (
               <View style={{ alignItems: "center", paddingVertical: 24 }}>
                 <AnimatedSuccessCheck size={84} />
                 <Text style={{ fontFamily: fonts.black, fontSize: 21, color: "#0F172A", marginTop: 16, marginBottom: 8 }}>

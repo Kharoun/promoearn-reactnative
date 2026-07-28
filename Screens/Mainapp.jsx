@@ -5032,7 +5032,22 @@ if (tasksRes.success) {
         </TouchableOpacity>
       )}
 
-      {/* Tasks preview */}
+   {/* Latest Tasks — locked preview shown to inactivated users */}
+   {!(user?.isActivated || user?.isAdmin) && (
+        <View style={{ paddingHorizontal: 16, marginBottom: 18 }}>
+          <SH title={t("latestTasks")} />
+          {FAKE_TASKS.map((task) => (
+            <TouchableOpacity
+              key={task.id}
+              activeOpacity={0.85}
+              onPress={onUpgrade}
+            >
+              <TaskCard task={task} locked />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
      {/* Quick Actions */}
 {/* Quick Actions */}
 <View style={{ paddingHorizontal: 16, marginBottom: 18 }}>

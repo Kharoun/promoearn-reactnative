@@ -8,6 +8,7 @@ const CATEGORY_META = {
   transaction: { icon: "💳", color: "#10B981", label: "Transaction" },
   campaign:    { icon: "📣", color: "#8B5CF6", label: "Campaign" },
   session:     { icon: "🔐", color: "#F59E0B", label: "Login" },
+  vtu:         { icon: "📶", color: "#0EA5E9", label: "Airtime & Data" },
 };
 
 const fmtDate = (d) => {
@@ -69,6 +70,7 @@ export default function ActivityHistoryScreen({ visible, onClose, C }) {
               { key: "all", label: "All" },
               { key: "task", label: "Tasks" },
               { key: "transaction", label: "Transactions" },
+              { key: "vtu", label: "Airtime & Data" },
               { key: "campaign", label: "Campaigns" },
               { key: "session", label: "Logins" },
             ].map((f) => {
@@ -101,6 +103,7 @@ export default function ActivityHistoryScreen({ visible, onClose, C }) {
             ) : (
               filtered.map((item, i) => {
                 const meta = CATEGORY_META[item.category] || CATEGORY_META.transaction;
+                const isPending = item.status === "pending_topup" || item.status === "pending";
                 return (
                   <View key={item.id + i} style={{
                     flexDirection: "row", alignItems: "center", gap: 12,
@@ -116,9 +119,21 @@ export default function ActivityHistoryScreen({ visible, onClose, C }) {
                       <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: C.dark }} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                        {meta.label} · {fmtDate(item.date)}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
+                        <Text style={{ fontSize: 12, color: C.muted }}>
+                          {meta.label} · {fmtDate(item.date)}
+                        </Text>
+                        {isPending && (
+                          <View style={{
+                            backgroundColor: "#FFFBEB", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1,
+                            borderWidth: 1, borderColor: "#FDE68A",
+                          }}>
+                            <Text style={{ fontSize: 9, fontFamily: fonts.bold, color: "#B45309", letterSpacing: 0.3 }}>
+                              PENDING
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                     {item.amount != null && item.amount !== 0 && (
                       <Text style={{
