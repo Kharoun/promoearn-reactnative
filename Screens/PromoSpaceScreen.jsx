@@ -1310,8 +1310,8 @@ const handleStart = (task, cb) => {
       <View style={[PS.header, { backgroundColor:C.card, borderBottomColor:C.border }]}>
         <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <View>
-            <Text style={[PS.title, { color:C.dark }]}>PromoSpace</Text>
-            <Text style={[PS.subtitle, { color:C.muted }]}>Earn · Advertise · Grow</Text>
+            <Text style={[PS.title, { color:C.dark }]}>Tasks</Text>
+            <Text style={[PS.subtitle, { color:C.muted }]}>Earn & Grow</Text>
           </View>
           {!locked && tab==="tasks" && (
             <View style={{ backgroundColor:C.greenSoft, borderRadius:12, paddingHorizontal:14, paddingVertical:8, alignItems:"center" }}>

@@ -4,6 +4,7 @@
    * Fully connected to backend API
    */
   // import { PanResponder } from "react-native";
+  import BoostScreen from "./BoostScreen";
   import Constants from "expo-constants";
   import { apiClient } from "../services/apiClient";
   import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -4564,6 +4565,7 @@
     const [showMyAds, setShowMyAds] = useState(false);
     const [showCampaign, setShowCampaign] = useState(false);
     const [showActivityHistory, setShowActivityHistory] = useState(false);
+    const [showBoost, setShowBoost] = useState(false);
     const [hasNewTask, setHasNewTask] = useState(false);
 
     useEffect(() => {
@@ -5093,8 +5095,8 @@
         { key: "task",         label: "Task",         icon: "📋", bg: "#DCE9FF", locked: false },
         { key: "withdraw",     label: "Withdraw",     icon: "💵", bg: "#DCE9FF", locked: false },
         { key: "myads",        label: "My Ads",        icon: "📢", bg: "#DCE9FF", locked: false },
-        { key: "campaign",     label: "Campaign",      icon: "📣", bg: "#DCE9FF", locked: false },
-        { key: "referral",     label: "Referral",      icon: "🔗", bg: "#DCE9FF", locked: false },
+        // { key: "campaign",     label: "Campaign",      icon: "📣", bg: "#DCE9FF", locked: false },
+        { key: "boost",    label: "Boost",     icon: "🚀", bg: "#DCE9FF", locked: false },
         { key: "share",        label: "Share & Earn",  icon: "🔗", bg: "#DCFCE7", locked: false },
         { key: "airtime",      label: "Airtime",       icon: "📱", bg: "#DCE9FF", locked: false },
         { key: "data",         label: "Data",          icon: "📶", bg: "#DCE9FF", locked: false },
@@ -5118,6 +5120,7 @@
             else if (qa.key === "giftcard") setShowGiftCard(true);
             else if (qa.key === "airtime") setShowAirtime(true);
             else if (qa.key === "data") setShowData(true);
+            else if (qa.key === "boost") onTabChange("boost");
           }}
           style={{
             width: "25%",
@@ -5200,6 +5203,17 @@
       </View>
     </View>
   </Modal>
+
+                {/* Boost modal */}
+                <Modal visible={showBoost} animationType="slide" onRequestClose={() => setShowBoost(false)}>
+          <BoostScreen
+            user={user}
+            setUser={setUser}
+            C={C}
+            onRefreshUser={onRefresh}
+            onClose={() => setShowBoost(false)}
+          />
+        </Modal>
 
         {/* Activity history modal */}
         <ActivityHistoryScreen
@@ -9428,7 +9442,8 @@
   // ── Tab Bar ────────────────────────────────────────────────────────────────
   const TABS_CONFIG = [
     { key: "home", label: "Home", Ic: Ico.Home },
-    { key: "promo", label: "PromoSpace", Ic: Ico.Promo },
+    { key: "promo", label: "Task Bar", Ic: Ico.Promo },
+    { key: "boost", label: "Boost", Ic: Ico.Rocket },
     { key: "wallet", label: "Wallet", Ic: Ico.Wallet },
     { key: "referral", label: "Referral", Ic: Ico.Refer },
     { key: "profile", label: "Profile", Ic: Ico.User },
@@ -9694,6 +9709,16 @@
               onUpgrade={openUpgrade}
             />
           );
+          case "boost":
+  return (
+    <BoostScreen
+      user={user}
+      setUser={setUser}
+      C={C}
+      onRefreshUser={fetchUser}
+      onClose={() => setTab("home")}
+    />
+  );
         case "wallet":
           return (
             <WalletScreen
